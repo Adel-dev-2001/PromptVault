@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="form-page">
+    <div class="form-card">
+        <div class="form-header">
+            <div class="form-icon"><i class="fas fa-pen-to-square"></i></div>
+            <h2>Edit Prompt</h2>
+            <p>Update the prompt text or category for this image.</p>
+        </div>
+
+        <!-- Current image preview -->
+        <div class="edit-preview">
+            <img src="{{ item.image_path }}" alt="Current image">
+        </div>
+
+        <form action="/edit/{{ item.id }}" method="post">
+
+            <div class="input-group">
+                <label for="prompt_text">
+                    <i class="fas fa-align-left"></i> Prompt Text
+                </label>
+                <textarea name="prompt_text" id="prompt_text"
+                          rows="6" required>{{ item.prompt_text }}</textarea>
+            </div>
+
+            <div class="input-group">
+                <label for="category">
+                    <i class="fas fa-tag"></i> Category
+                </label>
+                <input type="text" name="category" id="category"
+                       value="{{ item.category }}" required>
+            </div>
+
+            <div class="form-actions">
+                <a href="/" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-check"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

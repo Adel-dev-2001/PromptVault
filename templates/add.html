@@ -1,0 +1,75 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="form-page">
+    <div class="form-card">
+        <div class="form-header">
+            <div class="form-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+            <h2>Add New Prompt</h2>
+            <p>Upload your AI-generated image and save the prompt behind it.</p>
+        </div>
+
+        <form action="/add" method="post" enctype="multipart/form-data">
+
+            <div class="input-group">
+                <label for="image_file">
+                    <i class="fas fa-image"></i> Image File
+                </label>
+                <div class="file-drop-area" id="dropArea">
+                    <input type="file" name="image_file" id="image_file"
+                           accept="image/png,image/jpeg,image/gif,image/webp" required>
+                    <div class="file-drop-label">
+                        <i class="fas fa-upload"></i>
+                        <span id="fileLabel">Click or drag an image here</span>
+                        <small>PNG, JPG, GIF, WEBP accepted</small>
+                    </div>
+                    <img id="preview" src="" alt="Preview" style="display:none;">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="prompt_text">
+                    <i class="fas fa-align-left"></i> Prompt Text
+                </label>
+                <textarea name="prompt_text" id="prompt_text" rows="5"
+                          placeholder="Paste the full prompt you used to generate this image..." required></textarea>
+            </div>
+
+            <div class="input-group">
+                <label for="category">
+                    <i class="fas fa-tag"></i> Category
+                </label>
+                <input type="text" name="category" id="category"
+                       placeholder="e.g. Portrait, Cyberpunk, Landscape" required>
+            </div>
+
+            <div class="form-actions">
+                <a href="/" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-vault"></i> Save to Vault
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Image preview on select
+    const input = document.getElementById('image_file');
+    const preview = document.getElementById('preview');
+    const fileLabel = document.getElementById('fileLabel');
+
+    input.addEventListener('change', function () {
+        const file = this.files[0];
+        if (file) {
+            fileLabel.textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = e => {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+</script>
+{% endblock %}

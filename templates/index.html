@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<!-- Toolbar: filters + sort -->
+<div class="toolbar">
+    <div class="filter-group">
+        <a href="/" class="filter-chip {% if not selected_cat and not show_fav %}active{% endif %}">
+            All
+        </a>
+        <a href="/?favorites=1" class="filter-chip fav-chip {% if show_fav %}active{% endif %}">
+            <i class="fas fa-heart"></i> Favorites
+        </a>
+        {% for cat in categories %}
+            <a href="/?category={{ cat.category }}"
+               class="filter-chip {% if selected_cat == cat.category %}active{% endif %}">
+                {{ cat.category }}
+            </a>
+        {% endfor %}
+    </div>
+
+    <div class="sort-group">
+        <a href="?sort=newest{% if selected_cat %}&category={{ selected_cat }}{% endif %}"
+           class="sort-btn {% if sort == 'newest' %}active{% endif %}">
+            <i class="fas fa-arrow-down"></i> Newest
+        </a>
+        <a href="?sort=oldest{% if selected_cat %}&category={{ selected_cat }}{% endif %}"
+           class="sort-btn {% if sort == 'oldest' %}active{% endif %}">
+            <i class="fas fa-arrow-up"></i> Oldest
+        </a>
+    </div>
+</div>
+
+<!-- Gallery -->
+{% if prompts %}
+<main class="gallery">
+    {% for p in prompts %}
+    <div class="card" style="animation-delay: {{ loop.index0 * 0.07 }}s">
+        <div class="image-box">
+            <img src="{{ p.image_path }}" alt="AI Generated Image" loading="lazy">
+            <div class="card-overlay">
+                <a href="/download/{{ p.category }}/{{ p.image_path.split('/')[-1] }}" class="overlay-btn" title="Download">
+                    <i class="fas fa-download"></i>
+                </a>
+                <a href="/edit/{{ p.id }}" class="overlay-btn" title="Edit">
+                    <i class="fas fa-pen"></i>
+                </a>
+                <form action="/delete/{{ p.id }}" method="post" style="display:inline">
+                    <button type="submit" class="overlay-btn danger" title="Delete"
+                            onclick="return confirm('Delete this prompt?')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </form>
+            </div>
+            <form action="/favorite/{{ p.id }}" method="post" class="fav-form">
+                <button type="submit" class="fav-btn {% if p.is_favorite %}is-fav{% endif %}" title="Favorite">
+                    <i class="fas fa-heart"></i>
+                </button>
+            </form>
+        </div>
+        <div class="card-content">
+            <span class="category-badge">{{ p.category }}</span>
+            <p class="prompt-text">"{{ p.prompt_text }}"</p>
+            <span class="timestamp">
+                <i class="fas fa-clock"></i> {{ p.timestamp[:10] }}
+            </span>
+        </div>
+    </div>
+    {% endfor %}
+</main>
+
+{% else %}
+<!-- Empty state -->
+<div class="empty-state">
+    <div class="empty-icon"><i class="fas fa-images"></i></div>
+    <h2>No prompts found</h2>
+    <p>
+        {% if selected_cat %}
+            No prompts in "<strong>{{ selected_cat }}</strong>" yet.
+        {% elif show_fav %}
+            You haven't favorited anything yet.
+        {% else %}
+            Your vault is empty. Start adding prompts!
+        {% endif %}
+    </p>
+    <a href="/add" class="btn btn-primary"><i class="fas fa-plus"></i> Add First Prompt</a>
+</div>
+{% endif %}
+
+{% endblock %}

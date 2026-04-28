@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="form-page">
+    <div class="form-card about-card">
+        <div class="form-header">
+            <div class="form-icon"><i class="fas fa-vault"></i></div>
+            <h2>About PromptVault</h2>
+        </div>
+
+        <div class="about-body">
+            <p>
+                <strong>PromptVault</strong> is a personal library for saving and organizing
+                AI-generated images alongside the prompts used to create them.
+            </p>
+            <p>
+                Never lose a good prompt again — upload your artwork, write the prompt,
+                pick a category, and keep everything in one place.
+            </p>
+
+            <div class="about-features">
+                <div class="feature-item">
+                    <i class="fas fa-images"></i>
+                    <span>Gallery view with filter & sort</span>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-heart"></i>
+                    <span>Favorite your best prompts</span>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-download"></i>
+                    <span>Download images anytime</span>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-tags"></i>
+                    <span>Organize by category</span>
+                </div>
+            </div>
+
+            <div class="about-tech">
+                <h3>Built With</h3>
+                <div class="tech-stack">
+                    <span class="tech-badge">Python / Flask</span>
+                    <span class="tech-badge">SQLite (cs50)</span>
+                    <span class="tech-badge">Jinja2</span>
+                    <span class="tech-badge">HTML / CSS</span>
+                </div>
+            </div>
+
+            <p class="about-footer">
+                CS50x Final Project &mdash; 2026
+            </p>
+        </div>
+
+        <div class="form-actions" style="margin-top:2rem;">
+            <a href="/" class="btn btn-primary"><i class="fas fa-arrow-left"></i> Back to Gallery</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
