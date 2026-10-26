@@ -1,8 +1,14 @@
 import os
 import re
+import sqlite3
 from cs50 import SQL
 from flask import Flask, render_template, request, redirect, send_from_directory, flash, abort
 from werkzeug.utils import secure_filename
+# AI-assisted portfolio hardening with v0 (2026-10-26): CSRF, image verification,
+# upload limits, category full-match validation, and response headers.
+# These changes are separate from the original CS50x submission.
+from flask_wtf.csrf import CSRFProtect
+from PIL import Image, UnidentifiedImageError
 
 app = Flask(__name__)
 # Secret key for flash messages: set the SECRET_KEY environment variable, otherwise a random key is used
@@ -12,12 +18,16 @@ app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(24)
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
+CSRFProtect(app)
 
 # Category names are used as folder names, so only letters, numbers, spaces, - and _ are allowed
 CATEGORY_PATTERN = re.compile(r"^[\w \-]{1,30}$")
 
-# Database connection
-db = SQL("sqlite:///prompts.db")
+# CS50 SQL requires the SQLite file to exist before opening it.
+database_path = os.path.abspath('prompts.db')
+sqlite3.connect(database_path).close()
+db = SQL(f'sqlite:///{database_path}')
 
 # Create table if it doesn't exist
 db.execute("""
@@ -36,7 +46,22 @@ def allowed_file(filename):
 
 
 def valid_category(name):
-    return bool(CATEGORY_PATTERN.match(name))
+    return bool(CATEGORY_PATTERN.fullmatch(name))
+
+
+@app.after_request
+def security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    if request.is_secure:
+        response.headers['Strict-Transport-Security'] = 'max-age=63072000'
+    return response
+
+
+@app.errorhandler(413)
+def upload_too_large(error):
+    return 'Upload too large. The complete request must not exceed 10 MB.', 413
 
 
 @app.route("/")
@@ -77,6 +102,23 @@ def add():
             if not allowed_file(file.filename):
                 flash("Invalid file type. Please upload an image (png, jpg, jpeg, gif, webp).", "error")
                 return render_template("add.html")
+
+            expected_formats = {
+                'png': 'PNG', 'jpg': 'JPEG', 'jpeg': 'JPEG',
+                'gif': 'GIF', 'webp': 'WEBP',
+            }
+            extension = file.filename.rsplit('.', 1)[1].lower()
+            try:
+                with Image.open(file.stream) as uploaded_image:
+                    if uploaded_image.format != expected_formats[extension]:
+                        raise ValueError('Image contents do not match the extension.')
+                    if uploaded_image.width * uploaded_image.height > 20_000_000:
+                        raise ValueError('Image dimensions are too large.')
+                    uploaded_image.verify()
+                file.stream.seek(0)
+            except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+                flash('Please upload a valid image, with matching extension and at most 20 million pixels.', 'error')
+                return render_template('add.html'), 400
 
             # Clean the file name, and never overwrite an existing image with the same name
             stem, ext = file.filename.rsplit('.', 1)
