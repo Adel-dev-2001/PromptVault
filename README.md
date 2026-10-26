@@ -31,7 +31,7 @@ There is also a short About page, and flash messages give feedback after every a
 
 ## How to run it
 
-You need Python 3 and `pip`.
+You need Python and `pip`. The pinned dependencies and portfolio-hardening changes were tested on Python 3.13.
 
 1. Open a terminal in the project folder.
 2. Create and activate a virtual environment:
@@ -60,7 +60,7 @@ You need Python 3 and `pip`.
 
 5. Open http://127.0.0.1:5000 in your browser.
 
-The included `prompts.db` is empty. The `images` table is created automatically the first time the app starts. The page icons (Font Awesome) and fonts (Google Fonts) are loaded from CDNs, so an internet connection is needed to see them.
+The local `prompts.db` file and its `images` table are created automatically on first startup. The database is not committed to this repository. The page icons (Font Awesome) and fonts (Google Fonts) are loaded from CDNs, so an internet connection is needed to see them.
 
 ---
 
@@ -68,7 +68,7 @@ The included `prompts.db` is empty. The `images` table is created automatically 
 
 The backend is Python and Flask. I have routes for the main gallery, adding new entries, editing, deleting, favoriting, downloading, and the About page. All data is stored in an SQLite database using the CS50 SQL library. The database has one table called `images` that stores the image path, prompt text, category, whether it's favorited, and a timestamp.
 
-For file uploads I used Werkzeug's `secure_filename` and added validation so only image files (png, jpg, jpeg, gif, webp) are accepted. The check is based on the file extension. Uploaded images are saved in a separate folder for each category (`static/uploads/<Category>/`), which is created when needed. If an image with the same name already exists in that category, the new one gets a number added (for example `photo_1.png`), so nothing is overwritten. Category names can only contain letters, numbers, spaces, hyphens and underscores (up to 30 characters), because they are used as folder names. The download route only serves files that are inside the uploads folder. When an entry is deleted, its image is removed, and the category folder is removed too if it is empty.
+For file uploads I used Werkzeug's `secure_filename` and added validation so only image files (png, jpg, jpeg, gif, webp) are accepted. The extension is checked, and Pillow verifies that the contents are a valid image matching that extension. The complete upload request is limited to 10 MB, and images must not exceed 20 million pixels. Flask-WTF protects all state-changing forms with CSRF tokens. Uploaded images are saved in a separate folder for each category (`static/uploads/<Category>/`), which is created when needed. If an image with the same name already exists in that category, the new one gets a number added (for example `photo_1.png`), so nothing is overwritten. Category names can only contain letters, numbers, spaces, hyphens and underscores (up to 30 characters), because they are used as folder names. The download route only serves files that are inside the uploads folder. When an entry is deleted, its image is removed, and the category folder is removed too if it is empty.
 
 The frontend is plain HTML, CSS, and a little JavaScript. I used Jinja2 templating with a base layout that all pages extend from. The one JavaScript I wrote is for the image preview on the upload form: it reads the file locally and shows a preview before you submit.
 
@@ -79,7 +79,7 @@ For the design I went with a dark glassmorphism style. I defined everything thro
 ## Files
 
 - `app.py`: all the Flask routes and logic
-- `prompts.db`: the SQLite database (empty in the repository)
+- `prompts.db`: the local SQLite database (generated at runtime; not committed)
 - `requirements.txt`: Python dependencies
 - `.gitignore`: keeps uploaded images and local databases out of Git
 - `static/styles.css`: all styling
@@ -103,7 +103,7 @@ For the design I went with a dark glassmorphism style. I defined everything thro
 
 ## Note on AI usage
 
-I used Claude (by Anthropic) as an assistant during development: for debugging, CSS suggestions, and code review. The idea, features, and structure are mine, and I understand how everything works. This is in line with CS50's academic honesty policy.
+I used Claude (by Anthropic) as an assistant during development: for debugging, CSS suggestions, and code review. The idea, features, and structure are mine, and I understand how everything works. CS50x 2026 permits external AI assistance specifically for the final project, provided the essence of the work remains the student's own and AI use is cited in code comments. See the [official final-project instructions](https://cs50.harvard.edu/x/2026/project/). This README is not a substitute for accurate citations beside the affected code. Later portfolio-review changes should be identified separately from the original course submission.
 
 ---
 
