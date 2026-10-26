@@ -1,3 +1,4 @@
-Flask
-Flask-Session
-cs50
+Flask==3.1.3
+Flask-WTF==1.3.0
+Pillow==13.0.0
+cs50==9.5.0
