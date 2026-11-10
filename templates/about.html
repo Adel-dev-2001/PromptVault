@@ -1,0 +1,95 @@
+{% extends "layout.html" %}
+
+{% block title %}PromptVault{% endblock %}
+{% block meta_description %}Explore PromptVault's architecture, security controls, database design, and academic research background.{% endblock %}
+
+{% block content %}
+<div class="form-page">
+    <div class="form-card about-card">
+        <div class="form-header">
+            <div class="form-icon"><i class="fas fa-vault" aria-hidden="true"></i></div>
+            <h2>About PromptVault</h2>
+            <p>Enterprise-Grade AI Prompt Library &amp; Generative Asset Management System</p>
+        </div>
+
+        <div class="about-body">
+            <section class="about-section">
+                <h3><i class="fas fa-bullseye" aria-hidden="true"></i> Project Overview</h3>
+                <p>
+                    <strong>PromptVault</strong> addresses a fundamental metadata persistence problem in generative artificial intelligence workflows:
+                    while modern diffusion models and multimodal generative pipelines synthesize high-fidelity visual artwork, the complex
+                    prompt engineering parameters (negative prompts, weights, tokens, and model settings) that produced them are frequently lost.
+                </p>
+                <p>
+                    PromptVault provides a unified, secure digital vault for cataloging, categorizing, and retrieving AI-generated artwork
+                    alongside its underlying prompt engineering specifications.
+                </p>
+            </section>
+
+            <section class="about-section">
+                <h3><i class="fas fa-layer-group" aria-hidden="true"></i> Core Capabilities</h3>
+                <div class="about-features">
+                    <div class="feature-item">
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                        <span>Live search across prompts and category taxonomies</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-shield-alt" aria-hidden="true"></i>
+                        <span>Defense-in-depth upload validation &amp; CSRF protection</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-copy" aria-hidden="true"></i>
+                        <span>One-click clipboard prompt synchronization</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-sitemap" aria-hidden="true"></i>
+                        <span>Schema.org JSON-LD &amp; automated XML sitemaps</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="about-section">
+                <h3><i class="fas fa-lock" aria-hidden="true"></i> Security Architecture</h3>
+                <ul class="specs-list">
+                    <li><strong>CSRF Mitigation:</strong> All state-altering endpoints require cryptographically signed CSRF tokens via Flask-WTF.</li>
+                    <li><strong>Deep File Verification:</strong> Inbound uploads undergo dual-phase verification via Werkzeug file sanitization and Pillow deep header analysis to prevent polyglot payloads.</li>
+                    <li><strong>Decompression Bomb Protection:</strong> Pixel count is strictly capped at 20 megapixels and total payload to 10 MB.</li>
+                    <li><strong>Path Traversal Immunity:</strong> Storage and download paths are verified using canonical path containment checks.</li>
+                    <li><strong>Strict Security Headers:</strong> Enforces Content-Security-Policy (CSP), X-Content-Type-Options (nosniff), X-Frame-Options (SAMEORIGIN), and strict Referrer-Policy.</li>
+                </ul>
+            </section>
+
+            <section class="about-section">
+                <h3><i class="fas fa-laptop-code" aria-hidden="true"></i> Technology Stack</h3>
+                <div class="tech-stack">
+                    <span class="tech-badge">Python 3.13+</span>
+                    <span class="tech-badge">Flask 3.x</span>
+                    <span class="tech-badge">SQLite3 (WAL &amp; Indexed)</span>
+                    <span class="tech-badge">Pillow (PIL)</span>
+                    <span class="tech-badge">Flask-WTF</span>
+                    <span class="tech-badge">Jinja2</span>
+                    <span class="tech-badge">HTML5 / CSS3</span>
+                    <span class="tech-badge">Schema.org JSON-LD</span>
+                </div>
+            </section>
+
+            <section class="about-section academic-note-box">
+                <h3><i class="fas fa-graduation-cap" aria-hidden="true"></i> Academic Background &amp; Research Statement</h3>
+                <p>
+                    This application was engineered by <strong>Adel Mohamed</strong> as a CS50x Final Project capstone exploration
+                    in modern software engineering, web application security, and full-stack architecture.
+                </p>
+                <p class="academic-text">
+                    Developed within an academic learning trajectory investigating the pedagogical use of artificial intelligence
+                    tools in software development, the codebase embodies rigorous defensive programming, clean architecture principles,
+                    and continuous iterative learning.
+                </p>
+            </section>
+        </div>
+
+        <div class="form-actions" style="margin-top:2rem;">
+            <a href="/" class="btn btn-primary"><i class="fas fa-arrow-left" aria-hidden="true"></i> Return to Gallery</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

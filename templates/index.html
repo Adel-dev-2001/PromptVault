@@ -1,0 +1,315 @@
+{% extends "layout.html" %}
+
+{% block title %}PromptVault{% endblock %}
+
+{% block extra_schema %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ImageGallery",
+  "name": "PromptVault Curated Collection",
+  "description": "High-fidelity archive of generative AI images paired with their underlying prompt engineering specifications.",
+  "numberOfItems": {{ prompts|length }}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<!-- Vault Statistics Overview -->
+<section class="metrics-banner" aria-label="Vault Statistics">
+    <div class="metric-pill">
+        <i class="fas fa-layer-group" aria-hidden="true"></i>
+        <span><strong>{{ stats.total }}</strong> Total Prompts</span>
+    </div>
+    <div class="metric-pill">
+        <i class="fas fa-tags" aria-hidden="true"></i>
+        <span><strong>{{ stats.categories }}</strong> Categories</span>
+    </div>
+    <div class="metric-pill">
+        <i class="fas fa-heart text-fav" aria-hidden="true"></i>
+        <span><strong>{{ stats.favorites }}</strong> Favorites</span>
+    </div>
+</section>
+
+<!-- Toolbar: Search + Filters + Sorting -->
+<section class="toolbar" aria-label="Gallery Controls">
+    <!-- Live Search Bar -->
+    <form action="/" method="get" class="search-form" role="search" aria-label="Search prompt library">
+        <div class="search-box">
+            <i class="fas fa-search search-icon" aria-hidden="true"></i>
+            <input type="text"
+                   name="q"
+                   id="searchInput"
+                   placeholder="Search prompts or categories... (Press '/' to search)"
+                   value="{{ q }}"
+                   autocomplete="off"
+                   aria-label="Search prompts and categories">
+            {% if q %}
+                <a href="{{ url_for('index', category=selected_cat, favorites=show_fav, sort=sort) }}"
+                   class="search-clear-btn"
+                   title="Clear search query"
+                   aria-label="Clear search">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </a>
+            {% endif %}
+            {% if selected_cat %}
+                <input type="hidden" name="category" value="{{ selected_cat }}">
+            {% endif %}
+            {% if show_fav %}
+                <input type="hidden" name="favorites" value="{{ show_fav }}">
+            {% endif %}
+            {% if sort %}
+                <input type="hidden" name="sort" value="{{ sort }}">
+            {% endif %}
+        </div>
+    </form>
+
+    <div class="controls-row">
+        <!-- Category & Favorite Filters -->
+        <div class="filter-group" role="tablist" aria-label="Category Filters">
+            <a href="{{ url_for('index', sort=sort, q=q) }}"
+               class="filter-chip {% if not selected_cat and not show_fav %}active{% endif %}"
+               role="tab"
+               aria-selected="{{ 'true' if not selected_cat and not show_fav else 'false' }}">
+                All
+            </a>
+            <a href="{{ url_for('index', favorites='1', sort=sort, q=q) }}"
+               class="filter-chip fav-chip {% if show_fav %}active{% endif %}"
+               role="tab"
+               aria-selected="{{ 'true' if show_fav else 'false' }}">
+                <i class="fas fa-heart" aria-hidden="true"></i> Favorites
+            </a>
+            {% for cat in categories %}
+                <a href="{{ url_for('index', category=cat.category, sort=sort, q=q) }}"
+                   class="filter-chip {% if selected_cat == cat.category %}active{% endif %}"
+                   role="tab"
+                   aria-selected="{{ 'true' if selected_cat == cat.category else 'false' }}">
+                    {{ cat.category }}
+                </a>
+            {% endfor %}
+        </div>
+
+        <!-- Sorting Controls -->
+        <div class="sort-group" aria-label="Sort Options">
+            <a href="{{ url_for('index', sort='newest', category=selected_cat, favorites=show_fav, q=q) }}"
+               class="sort-btn {% if sort == 'newest' %}active{% endif %}"
+               aria-label="Sort by newest first">
+                <i class="fas fa-arrow-down" aria-hidden="true"></i> Newest
+            </a>
+            <a href="{{ url_for('index', sort='oldest', category=selected_cat, favorites=show_fav, q=q) }}"
+               class="sort-btn {% if sort == 'oldest' %}active{% endif %}"
+               aria-label="Sort by oldest first">
+                <i class="fas fa-arrow-up" aria-hidden="true"></i> Oldest
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Gallery Grid -->
+{% if prompts %}
+<div class="gallery" id="galleryGrid">
+    {% for p in prompts %}
+    <article class="card" style="animation-delay: {{ loop.index0 * 0.05 }}s">
+        <div class="image-box">
+            <img src="{{ p.image_path }}"
+                 alt="AI Prompt: {{ p.prompt_text | truncate(80) }}"
+                 loading="lazy">
+
+            <div class="card-overlay" aria-hidden="true">
+                <!-- Quick Preview Modal Button -->
+                <button type="button"
+                        class="overlay-btn"
+                        title="View Details"
+                        aria-label="View prompt details"
+                        onclick="openDetailsModal({{ loop.index0 }})">
+                    <i class="fas fa-expand-alt" aria-hidden="true"></i>
+                </button>
+
+                <!-- Copy Prompt Button -->
+                <button type="button"
+                        class="overlay-btn"
+                        title="Copy Prompt"
+                        aria-label="Copy prompt text"
+                        onclick="copyPrompt({{ p.prompt_text | tojson }}, this)">
+                    <i class="fas fa-copy" aria-hidden="true"></i>
+                </button>
+
+                <!-- Download File -->
+                <a href="/download/{{ p.image_path.replace('/static/uploads/', '') }}"
+                   class="overlay-btn"
+                   title="Download Original"
+                   aria-label="Download image">
+                    <i class="fas fa-download" aria-hidden="true"></i>
+                </a>
+
+                <!-- Edit Entry -->
+                <a href="/edit/{{ p.id }}"
+                   class="overlay-btn"
+                   title="Edit Prompt"
+                   aria-label="Edit prompt">
+                    <i class="fas fa-pen" aria-hidden="true"></i>
+                </a>
+
+                <!-- Delete Entry -->
+                <form action="/delete/{{ p.id }}" method="post" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit"
+                            class="overlay-btn danger"
+                            title="Delete Prompt"
+                            aria-label="Delete prompt entry"
+                            onclick="return confirm('Are you sure you want to delete this prompt and its artwork?')">
+                        <i class="fas fa-trash" aria-hidden="true"></i>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Favorite Toggle Form -->
+            <form action="/favorite/{{ p.id }}" method="post" class="fav-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit"
+                        class="fav-btn {% if p.is_favorite %}is-fav{% endif %}"
+                        title="{{ 'Remove from favorites' if p.is_favorite else 'Mark as favorite' }}"
+                        aria-label="Toggle favorite">
+                    <i class="fas fa-heart" aria-hidden="true"></i>
+                </button>
+            </form>
+        </div>
+
+        <div class="card-content">
+            <div class="card-meta-header">
+                <span class="category-badge">{{ p.category }}</span>
+                <button type="button"
+                        class="btn-text-copy"
+                        title="Quick Copy"
+                        aria-label="Copy prompt"
+                        onclick="copyPrompt({{ p.prompt_text | tojson }}, this)">
+                    <i class="fas fa-copy" aria-hidden="true"></i> Copy
+                </button>
+            </div>
+            <p class="prompt-text" title="{{ p.prompt_text }}">"{{ p.prompt_text }}"</p>
+            <div class="card-footer">
+                <span class="timestamp">
+                    <i class="fas fa-clock" aria-hidden="true"></i> {{ p.timestamp[:10] }}
+                </span>
+                <button type="button"
+                        class="card-view-link"
+                        onclick="openDetailsModal({{ loop.index0 }})">
+                    Details <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+    </article>
+    {% endfor %}
+</div>
+
+<!-- Details Modal -->
+<div id="detailsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="closeDetailsModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+        <button type="button" class="modal-close" aria-label="Close modal" onclick="closeModal()">
+            <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+        <div class="modal-grid">
+            <div class="modal-image-col">
+                <img id="modalImage" src="" alt="Selected AI artwork">
+            </div>
+            <div class="modal-info-col">
+                <span id="modalCategory" class="category-badge"></span>
+                <h3 id="modalTitle" class="modal-heading">Prompt Specification</h3>
+                <div class="modal-prompt-box">
+                    <p id="modalPromptText"></p>
+                </div>
+                <div class="modal-details-meta">
+                    <span id="modalDate" class="timestamp"></span>
+                    <span id="modalCharCount" class="timestamp"></span>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-primary" id="modalCopyBtn" onclick="copyModalPrompt()">
+                        <i class="fas fa-copy" aria-hidden="true"></i> Copy Prompt
+                    </button>
+                    <a href="#" class="btn btn-ghost" id="modalDownloadBtn" download>
+                        <i class="fas fa-download" aria-hidden="true"></i> Download
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Embedded client-side prompt dataset for instantaneous modal view
+    const promptDataset = [
+        {% for p in prompts %}
+        {
+            id: {{ p.id }},
+            imagePath: {{ p.image_path | tojson }},
+            promptText: {{ p.prompt_text | tojson }},
+            category: {{ p.category | tojson }},
+            date: {{ p.timestamp[:10] | tojson }},
+            downloadUrl: "/download/" + {{ p.image_path.replace('/static/uploads/', '') | tojson }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    let currentPromptText = "";
+
+    function openDetailsModal(index) {
+        const item = promptDataset[index];
+        if (!item) return;
+
+        document.getElementById('modalImage').src = item.imagePath;
+        document.getElementById('modalImage').alt = "AI Artwork: " + item.promptText.substring(0, 60);
+        document.getElementById('modalCategory').textContent = item.category;
+        document.getElementById('modalPromptText').textContent = item.promptText;
+        document.getElementById('modalDate').innerHTML = '<i class="fas fa-calendar-alt"></i> Added on ' + item.date;
+        document.getElementById('modalCharCount').innerHTML = '<i class="fas fa-keyboard"></i> ' + item.promptText.length + ' chars';
+        document.getElementById('modalDownloadBtn').href = item.downloadUrl;
+
+        currentPromptText = item.promptText;
+        document.getElementById('detailsModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+        document.getElementById('detailsModal').classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    function closeDetailsModal(e) {
+        if (e.target.id === 'detailsModal') {
+            closeModal();
+        }
+    }
+
+    function copyModalPrompt() {
+        const btn = document.getElementById('modalCopyBtn');
+        copyPrompt(currentPromptText, btn);
+    }
+</script>
+
+{% else %}
+<!-- Zero-State Feedback -->
+<div class="empty-state" role="status">
+    <div class="empty-icon"><i class="fas fa-images" aria-hidden="true"></i></div>
+    <h2>No prompts found</h2>
+    <p>
+        {% if q %}
+            No results matching query "<strong>{{ q }}</strong>".
+        {% elif selected_cat %}
+            No prompts found in category "<strong>{{ selected_cat }}</strong>" yet.
+        {% elif show_fav %}
+            You have not favorited any prompts yet.
+        {% else %}
+            Your prompt vault is empty. Start archiving your creative prompts!
+        {% endif %}
+    </p>
+    <div class="empty-state-actions">
+        {% if q or selected_cat or show_fav %}
+            <a href="/" class="btn btn-ghost"><i class="fas fa-times" aria-hidden="true"></i> Reset Filters</a>
+        {% endif %}
+        <a href="/add" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> Add First Prompt</a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

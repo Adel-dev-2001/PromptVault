@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+
+{% block title %}413 — Payload Too Large | PromptVault{% endblock %}
+
+{% block content %}
+<div class="form-page">
+    <div class="form-card error-card">
+        <div class="form-header">
+            <div class="form-icon error-icon"><i class="fas fa-file-upload" aria-hidden="true"></i></div>
+            <h2>413 — Upload Too Large</h2>
+            <p>The uploaded image exceeds the 10 MB limit. Please optimize or compress your file and try again.</p>
+        </div>
+        <div class="error-actions">
+            <a href="/add" class="btn btn-primary"><i class="fas fa-redo"></i> Try Another Upload</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

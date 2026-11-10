@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PromptVault{% endblock %}</title>
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{% block meta_description %}PromptVault is a high-performance, secure digital library for archiving, categorizing, and retrieving AI image prompts and generated artwork.{% endblock %}">
+    <meta name="keywords" content="AI prompts, Midjourney prompts, Stable Diffusion, DALL-E, prompt vault, AI image generator, prompt engineering, prompt catalog">
+    <meta name="author" content="Adel Mohamed">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#080e1a">
+    <link rel="canonical" href="{{ request.base_url }}">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:site_name" content="PromptVault">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="PromptVault">
+    <meta property="og:description" content="A secure, elegant library for organizing AI-generated artwork and prompts.">
+    <meta property="og:url" content="{{ request.base_url }}">
+    <meta property="og:image" content="{{ request.url_root }}static/favicon.svg">
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="PromptVault">
+    <meta name="twitter:description" content="{% block twitter_description %}A secure, elegant library for organizing AI-generated artwork and prompts.{% endblock %}">
+    <meta name="twitter:image" content="{{ request.url_root }}static/favicon.svg">
+
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "PromptVault",
+      "url": "{{ request.url_root }}",
+      "description": "Enterprise-grade digital vault for organizing, filtering, and retrieving AI prompts and artwork.",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "All",
+      "author": {
+        "@type": "Person",
+        "name": "Adel Mohamed"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+    {% block extra_schema %}{% endblock %}
+
+    <!-- Stylesheets & Fonts -->
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+</head>
+<body>
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <header role="banner">
+        <a href="/" class="logo" aria-label="PromptVault Home">
+            <span class="logo-icon" aria-hidden="true"><i class="fas fa-vault"></i></span>
+            PromptVault
+        </a>
+        <nav aria-label="Main Navigation">
+            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
+                <i class="fas fa-th-large" aria-hidden="true"></i> Gallery
+            </a>
+            <a href="/about" class="nav-link {% if request.path == '/about' %}active{% endif %}">
+                <i class="fas fa-info-circle" aria-hidden="true"></i> About
+            </a>
+            <a href="/add" class="btn btn-primary" aria-label="Add new prompt">
+                <i class="fas fa-plus" aria-hidden="true"></i> Add Prompt
+            </a>
+        </nav>
+    </header>
+
+    <!-- Flash Notification Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container" role="region" aria-label="System notifications">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}" role="alert">
+                        <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}" aria-hidden="true"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <main id="main-content" role="main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Toast Notification for Asynchronous Feedback -->
+    <div id="toastNotification" class="toast-notification" role="status" aria-live="polite"></div>
+
+    <footer role="contentinfo">
+        <div class="footer-content">
+            <p>&copy; 2026 PromptVault &mdash; CS50x Final Project</p>
+            <p class="footer-subtitle">by Adel Mohamed</p>
+        </div>
+    </footer>
+
+    <!-- Global Interactive Utilities -->
+    <script>
+        function showToast(message) {
+            const toast = document.getElementById('toastNotification');
+            if (!toast) return;
+            toast.textContent = message;
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 2500);
+        }
+
+        function copyPrompt(text, btn) {
+            if (!navigator.clipboard) {
+                // Fallback for non-secure contexts
+                const tempArea = document.createElement('textarea');
+                tempArea.value = text;
+                document.body.appendChild(tempArea);
+                tempArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempArea);
+                showToast('Prompt copied to clipboard!');
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Prompt copied to clipboard! ✓');
+                if (btn) {
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i>';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.classList.remove('copied');
+                    }, 1800);
+                }
+            }).catch(err => {
+                showToast('Unable to copy prompt.');
+            });
+        }
+
+        // Global hotkey: Press '/' to focus search input
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) {
+                    e.preventDefault();
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            } else if (e.key === 'Escape') {
+                const modal = document.querySelector('.modal-overlay.active');
+                if (modal) {
+                    modal.classList.remove('active');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

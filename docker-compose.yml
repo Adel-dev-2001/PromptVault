@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  promptvault:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: promptvault_app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=replace_with_a_secure_production_secret_key_32_bytes
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+      - DATABASE_PATH=/app/data/prompts.db
+    volumes:
+      - promptvault_data:/app/data
+      - promptvault_uploads:/app/static/uploads
+
+volumes:
+  promptvault_data:
+    driver: local
+  promptvault_uploads:
+    driver: local
+

@@ -1,0 +1,147 @@
+{% extends "layout.html" %}
+
+{% block title %}PromptVault{% endblock %}
+{% block meta_description %}Archive an AI-generated image with its exact generation prompt, category, and metadata in PromptVault.{% endblock %}
+
+{% block content %}
+<div class="form-page">
+    <div class="form-card">
+        <div class="form-header">
+            <div class="form-icon"><i class="fas fa-cloud-upload-alt" aria-hidden="true"></i></div>
+            <h2>Add New Prompt</h2>
+            <p>Upload your AI-generated artwork and preserve the exact prompt engineering parameters.</p>
+        </div>
+
+        <form action="/add" method="post" enctype="multipart/form-data" id="addPromptForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="input-group">
+                <label for="image_file">
+                    <i class="fas fa-image" aria-hidden="true"></i> Image File
+                </label>
+                <div class="file-drop-area" id="dropArea">
+                    <input type="file"
+                           name="image_file"
+                           id="image_file"
+                           accept="image/png,image/jpeg,image/gif,image/webp"
+                           required
+                           aria-label="Upload artwork file">
+                    <div class="file-drop-label" id="dropLabel">
+                        <i class="fas fa-upload" aria-hidden="true"></i>
+                        <span id="fileLabel">Click to browse or drag an image here</span>
+                        <small>Supported formats: PNG, JPG, JPEG, GIF, WEBP (Max 10 MB, up to 20 MP)</small>
+                    </div>
+                    <img id="preview" src="" alt="Selected image preview" style="display:none;">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <div class="label-with-counter">
+                    <label for="prompt_text">
+                        <i class="fas fa-align-left" aria-hidden="true"></i> Generation Prompt
+                    </label>
+                    <span id="charCounter" class="char-counter">0 chars</span>
+                </div>
+                <textarea name="prompt_text"
+                          id="prompt_text"
+                          rows="5"
+                          placeholder="Paste the complete prompt, negative prompts, or model parameters..."
+                          required
+                          aria-describedby="charCounter"></textarea>
+            </div>
+
+            <div class="input-group">
+                <label for="category">
+                    <i class="fas fa-tag" aria-hidden="true"></i> Category
+                </label>
+                <input type="text"
+                       name="category"
+                       id="category"
+                       placeholder="e.g. Portrait, Cyberpunk, Landscape, Concept Art"
+                       maxlength="30"
+                       required>
+                <div class="suggested-tags">
+                    <span class="tags-label">Quick Suggestions:</span>
+                    <button type="button" class="tag-pill" onclick="setCategory('Portrait')">Portrait</button>
+                    <button type="button" class="tag-pill" onclick="setCategory('Cyberpunk')">Cyberpunk</button>
+                    <button type="button" class="tag-pill" onclick="setCategory('Landscape')">Landscape</button>
+                    <button type="button" class="tag-pill" onclick="setCategory('Concept Art')">Concept Art</button>
+                    <button type="button" class="tag-pill" onclick="setCategory('Architecture')">Architecture</button>
+                    <button type="button" class="tag-pill" onclick="setCategory('Sci-Fi')">Sci-Fi</button>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="/" class="btn btn-ghost"><i class="fas fa-arrow-left" aria-hidden="true"></i> Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-vault" aria-hidden="true"></i> Save to Vault
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const input = document.getElementById('image_file');
+    const preview = document.getElementById('preview');
+    const fileLabel = document.getElementById('fileLabel');
+    const dropArea = document.getElementById('dropArea');
+    const promptText = document.getElementById('prompt_text');
+    const charCounter = document.getElementById('charCounter');
+
+    // Live character counter
+    promptText.addEventListener('input', function() {
+        charCounter.textContent = this.value.length + ' chars';
+    });
+
+    // Quick tag selector
+    function setCategory(name) {
+        document.getElementById('category').value = name;
+    }
+
+    // Image preview on select
+    function handleFile(file) {
+        if (file && file.type.startsWith('image/')) {
+            fileLabel.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+            const reader = new FileReader();
+            reader.onload = e => {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    input.addEventListener('change', function () {
+        if (this.files.length) {
+            handleFile(this.files[0]);
+        }
+    });
+
+    // Drag-and-drop visuals
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.add('dragover');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.remove('dragover');
+        }, false);
+    });
+
+    dropArea.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length) {
+            input.files = files;
+            handleFile(files[0]);
+        }
+    });
+</script>
+{% endblock %}
