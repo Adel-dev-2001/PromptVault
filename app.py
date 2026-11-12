@@ -8,6 +8,7 @@ generative AI prompts and their corresponding image files.
 import os
 import re
 import sqlite3
+import unicodedata
 from urllib.parse import quote_plus
 from cs50 import SQL
 from flask import (
@@ -96,8 +97,18 @@ def allowed_file(filename: str) -> bool:
 
 
 def valid_category(name: str) -> bool:
-    """Validate that a category name strictly matches safe filesystem characters."""
-    return bool(CATEGORY_PATTERN.fullmatch(name))
+    """Validate that a category name strictly matches safe Unicode letters, digits, spaces, - and _."""
+    if not isinstance(name, str) or not (1 <= len(name) <= 30) or ".." in name:
+        return False
+    if CATEGORY_PATTERN.fullmatch(name):
+        return True
+    for ch in name:
+        if ch in (" ", "-", "_"):
+            continue
+        cat_code = unicodedata.category(ch)
+        if not (cat_code.startswith("L") or cat_code.startswith("N") or cat_code.startswith("M")):
+            return False
+    return True
 
 
 def upload_path_from_url(image_path: str):

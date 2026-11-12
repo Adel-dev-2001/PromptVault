@@ -434,7 +434,7 @@
     <!-- Client-Side Application Engine -->
     <script>
         const STORAGE_KEY = 'promptvault_vault_items';
-        const CATEGORY_REGEX = /^[\w \-]{1,30}$/;
+        const CATEGORY_REGEX = /^[\p{L}\p{M}\p{N}_ \-]{1,30}$/u;
 
         let state = {
             prompts: [],
@@ -466,7 +466,7 @@
         }
 
         function toTitleCase(str) {
-            return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
+            return str.replace(/\S+/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
         }
 
         function escapeHtml(str) {
