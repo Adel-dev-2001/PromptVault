@@ -434,7 +434,21 @@
     <!-- Client-Side Application Engine -->
     <script>
         const STORAGE_KEY = 'promptvault_vault_items';
-        const CATEGORY_REGEX = /^[\p{L}\p{M}\p{N}_ \-]{1,30}$/u;
+        const FORBIDDEN_CATEGORY_REGEX = /[\/\\:*?"<>|\x00-\x1F]/;
+
+        function sanitizeCategory(str) {
+            return String(str || '')
+                .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\u061C\uFEFF]/g, '')
+                .trim()
+                .replace(/\s+/g, ' ');
+        }
+
+        function isValidCategory(str) {
+            const cleaned = sanitizeCategory(str);
+            if (!cleaned || cleaned.length > 30) return false;
+            if (cleaned.includes('..') || cleaned.startsWith('.') || cleaned.endsWith('.')) return false;
+            return !FORBIDDEN_CATEGORY_REGEX.test(cleaned);
+        }
 
         let state = {
             prompts: [],
@@ -843,14 +857,14 @@
         function handleAddSubmit(e) {
             e.preventDefault();
             const prompt = document.getElementById('prompt_text').value.trim();
-            const rawCat = document.getElementById('category').value.trim();
+            const rawCat = sanitizeCategory(document.getElementById('category').value);
             const cat = toTitleCase(rawCat);
 
             if (!prompt || !cat) {
                 showFlash('Please fill in all fields.', 'error');
                 return;
             }
-            if (!CATEGORY_REGEX.test(cat)) {
+            if (!isValidCategory(cat)) {
                 showFlash('Category can only contain letters, numbers, spaces, - and _ (max 30 characters).', 'error');
                 return;
             }
@@ -881,14 +895,14 @@
             e.preventDefault();
             const id = parseInt(document.getElementById('editItemId').value, 10);
             const newPrompt = document.getElementById('edit_prompt_text').value.trim();
-            const rawCat = document.getElementById('edit_category').value.trim();
+            const rawCat = sanitizeCategory(document.getElementById('edit_category').value);
             const newCat = toTitleCase(rawCat);
 
             if (!newPrompt || !newCat) {
                 showFlash('Please fill in all fields.', 'error');
                 return;
             }
-            if (!CATEGORY_REGEX.test(newCat)) {
+            if (!isValidCategory(newCat)) {
                 showFlash('Category can only contain letters, numbers, spaces, - and _ (max 30 characters).', 'error');
                 return;
             }

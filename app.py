@@ -96,17 +96,29 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+FORBIDDEN_CATEGORY_CHARS = set('/\\:*?"<>|\n\r\t\0')
+
+
+def sanitize_category(raw: str) -> str:
+    """Strip invisible bidirectional/format markers and normalize whitespace."""
+    if not isinstance(raw, str):
+        return ""
+    cleaned = "".join(ch for ch in raw if unicodedata.category(ch) != "Cf")
+    return " ".join(cleaned.strip().split())
+
+
 def valid_category(name: str) -> bool:
-    """Validate that a category name strictly matches safe Unicode letters, digits, spaces, - and _."""
-    if not isinstance(name, str) or not (1 <= len(name) <= 30) or ".." in name:
+    """Validate that a category name is safe for filesystem directory creation across all languages."""
+    if not isinstance(name, str):
         return False
-    if CATEGORY_PATTERN.fullmatch(name):
-        return True
-    for ch in name:
-        if ch in (" ", "-", "_"):
-            continue
+    if any(ch in FORBIDDEN_CATEGORY_CHARS for ch in name):
+        return False
+    cleaned = sanitize_category(name)
+    if not (1 <= len(cleaned) <= 30) or ".." in cleaned or cleaned.startswith(".") or cleaned.endswith("."):
+        return False
+    for ch in cleaned:
         cat_code = unicodedata.category(ch)
-        if not (cat_code.startswith("L") or cat_code.startswith("N") or cat_code.startswith("M")):
+        if cat_code.startswith("C"):
             return False
     return True
 
@@ -274,7 +286,7 @@ def add():
     if request.method == "POST":
         file = request.files.get("image_file")
         prompt = request.form.get("prompt_text", "").strip()
-        cat = request.form.get("category", "").strip().title()
+        cat = sanitize_category(request.form.get("category", "")).title()
 
         if not prompt or not cat:
             flash("Please fill in all fields.", "error")
@@ -365,7 +377,7 @@ def edit(id: int):
 
     if request.method == "POST":
         new_prompt = request.form.get("prompt_text", "").strip()
-        new_cat = request.form.get("category", "").strip().title()
+        new_cat = sanitize_category(request.form.get("category", "")).title()
 
         if not new_prompt or not new_cat:
             flash("Please fill in all fields.", "error")
