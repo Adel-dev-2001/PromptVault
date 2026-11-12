@@ -1,21 +1,21 @@
 <div align="center">
-
   <img src="static/favicon.svg" alt="PromptVault Logo" width="88" />
-
-  # PromptVault
-  ### AI Prompt Library & Image Asset Manager
-
-  CS50x Final Project | Built and maintained by [**Adel Mohamed**](https://github.com/Adel-dev-2001)
-
-  [![Python](https://img.shields.io/badge/Python-3.13%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-  [![Flask](https://img.shields.io/badge/Flask-3.1.3-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
-  [![SQLite](https://img.shields.io/badge/Database-SQLite_3-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
-  [![Pillow](https://img.shields.io/badge/Imaging-Pillow_13.0-3b82f6?style=flat-square)](https://python-pillow.org/)
-  [![Tests](https://img.shields.io/badge/Tests-16_Passing-2ea44f?style=flat-square)](#automated-test-suite)
-  [![License: MIT](https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square)](LICENSE)
-
-  [**Video Demonstration**](https://youtu.be/-prDHVKBQtc) | [**Source Repository**](https://github.com/Adel-dev-2001/PromptVault)
-
+  <h1>PromptVault</h1>
+  <h3>AI Prompt Library &amp; Image Asset Manager</h3>
+  <p>CS50x Final Project | Built and maintained by <a href="https://github.com/Adel-dev-2001"><strong>Adel Mohamed</strong></a></p>
+  <p>
+    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.13%2B-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python" /></a>
+    <a href="https://flask.palletsprojects.com/"><img src="https://img.shields.io/badge/Flask-3.1.3-000000?style=flat-square&amp;logo=flask&amp;logoColor=white" alt="Flask" /></a>
+    <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/Database-SQLite_3-003B57?style=flat-square&amp;logo=sqlite&amp;logoColor=white" alt="SQLite" /></a>
+    <a href="https://python-pillow.org/"><img src="https://img.shields.io/badge/Imaging-Pillow_13.0-3b82f6?style=flat-square" alt="Pillow" /></a>
+    <a href="#automated-test-suite"><img src="https://img.shields.io/badge/Tests-16_Passing-2ea44f?style=flat-square" alt="Tests" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square" alt="License: MIT" /></a>
+  </p>
+  <p>
+    <a href="https://adel-dev-2001.github.io/PromptVault/"><strong>Live Web App</strong></a> |
+    <a href="https://youtu.be/-prDHVKBQtc"><strong>Video Demonstration</strong></a> |
+    <a href="https://github.com/Adel-dev-2001/PromptVault"><strong>Source Repository</strong></a>
+  </p>
 </div>
 
 ---
@@ -117,13 +117,18 @@ PromptVault/
 │   └── layout.html                 # Base template (SEO meta tags, JSON-LD, nav, footer)
 ├── .env.example                    # Example environment variable configuration
 ├── .gitignore                      # Excludes .venv, __pycache__, *.db, and uploaded images
+├── .nojekyll                       # Disables Jekyll processing for GitHub Pages deployment
+├── 404.html                        # Static 404 fallback page for GitHub Pages
 ├── app.py                          # Main Flask application, routes, validation, and headers
 ├── Dockerfile                      # Production container definition
 ├── docker-compose.yml              # Docker Compose service and persistent volume config
+├── index.html                      # Interactive client-side web app for GitHub Pages live demo
 ├── LICENSE                         # MIT License
 ├── Procfile                        # Process definition for cloud platforms (Render/Heroku)
 ├── README.md                       # Project documentation
 ├── requirements.txt                # Pinned Python dependencies
+├── robots.txt                      # Static crawler directives for GitHub Pages
+├── sitemap.xml                     # Static XML sitemap for GitHub Pages
 ├── test_app.py                     # Automated unit test suite (16 test cases)
 └── wsgi.py                         # WSGI entry point for production servers
 ```

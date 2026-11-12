@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PromptVault</title>
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="PromptVault is a secure digital library for archiving, categorizing, and retrieving AI image prompts and generated artwork.">
+    <meta name="keywords" content="AI prompts, Midjourney prompts, Stable Diffusion, DALL-E, prompt vault, AI image generator, prompt engineering, prompt catalog">
+    <meta name="author" content="Adel Mohamed">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#080e1a">
+    <link rel="canonical" href="https://adel-dev-2001.github.io/PromptVault/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:site_name" content="PromptVault">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="PromptVault">
+    <meta property="og:description" content="A secure, elegant library for organizing AI-generated artwork and prompts.">
+    <meta property="og:url" content="https://adel-dev-2001.github.io/PromptVault/">
+    <meta property="og:image" content="https://adel-dev-2001.github.io/PromptVault/static/favicon.svg">
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="PromptVault">
+    <meta name="twitter:description" content="A secure, elegant library for organizing AI-generated artwork and prompts.">
+    <meta name="twitter:image" content="https://adel-dev-2001.github.io/PromptVault/static/favicon.svg">
+
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "PromptVault",
+      "url": "https://adel-dev-2001.github.io/PromptVault/",
+      "description": "Web application for organizing, filtering, and retrieving AI-generated images and their prompts.",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "All",
+      "author": {
+        "@type": "Person",
+        "name": "Adel Mohamed",
+        "url": "https://github.com/Adel-dev-2001"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "ImageGallery",
+      "name": "PromptVault Curated Collection",
+      "description": "Archive of generative AI images paired with their underlying prompt engineering specifications."
+    }
+    </script>
+
+    <!-- Stylesheets & Fonts -->
+    <link rel="stylesheet" href="./static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="./static/favicon.svg">
+    <link rel="manifest" href="./static/manifest.json">
+</head>
+<body>
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <header role="banner">
+        <a href="#gallery" class="logo" aria-label="PromptVault Home" onclick="navigateTo('gallery'); return false;">
+            <span class="logo-icon" aria-hidden="true"><i class="fas fa-vault"></i></span>
+            PromptVault
+        </a>
+        <nav aria-label="Main Navigation">
+            <a href="#gallery" id="navGallery" class="nav-link active" onclick="navigateTo('gallery'); return false;">
+                <i class="fas fa-th-large" aria-hidden="true"></i> Gallery
+            </a>
+            <a href="#about" id="navAbout" class="nav-link" onclick="navigateTo('about'); return false;">
+                <i class="fas fa-info-circle" aria-hidden="true"></i> About
+            </a>
+            <a href="#add" class="btn btn-primary" aria-label="Add new prompt" onclick="navigateTo('add'); return false;">
+                <i class="fas fa-plus" aria-hidden="true"></i> Add Prompt
+            </a>
+        </nav>
+    </header>
+
+    <!-- Flash Notification Messages -->
+    <div id="flashContainer" class="flash-container" role="region" aria-label="System notifications" style="display:none;"></div>
+
+    <main id="main-content" role="main">
+        <!-- ==================== VIEW 1: GALLERY ==================== -->
+        <div id="viewGallery">
+            <!-- Vault Statistics Overview -->
+            <section class="metrics-banner" aria-label="Vault Statistics">
+                <div class="metric-pill">
+                    <i class="fas fa-layer-group" aria-hidden="true"></i>
+                    <span><strong id="statTotal">0</strong> Total Prompts</span>
+                </div>
+                <div class="metric-pill">
+                    <i class="fas fa-tags" aria-hidden="true"></i>
+                    <span><strong id="statCategories">0</strong> Categories</span>
+                </div>
+                <div class="metric-pill">
+                    <i class="fas fa-heart text-fav" aria-hidden="true"></i>
+                    <span><strong id="statFavorites">0</strong> Favorites</span>
+                </div>
+            </section>
+
+            <!-- Toolbar: Search + Filters + Sorting -->
+            <section class="toolbar" aria-label="Gallery Controls">
+                <form class="search-form" role="search" aria-label="Search prompt library" onsubmit="event.preventDefault();">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon" aria-hidden="true"></i>
+                        <input type="text"
+                               id="searchInput"
+                               placeholder="Search prompts or categories... (Press '/' to search)"
+                               autocomplete="off"
+                               aria-label="Search prompts and categories">
+                        <a href="#clear"
+                           id="searchClearBtn"
+                           class="search-clear-btn"
+                           title="Clear search query"
+                           aria-label="Clear search"
+                           style="display:none;"
+                           onclick="clearSearch(); return false;">
+                            <i class="fas fa-times" aria-hidden="true"></i>
+                        </a>
+                    </div>
+                </form>
+
+                <div class="controls-row">
+                    <div class="filter-group" id="filterGroup" role="tablist" aria-label="Category Filters"></div>
+                    <div class="sort-group" aria-label="Sort Options">
+                        <a href="#newest"
+                           id="sortNewest"
+                           class="sort-btn active"
+                           aria-label="Sort by newest first"
+                           onclick="setSort('newest'); return false;">
+                            <i class="fas fa-arrow-down" aria-hidden="true"></i> Newest
+                        </a>
+                        <a href="#oldest"
+                           id="sortOldest"
+                           class="sort-btn"
+                           aria-label="Sort by oldest first"
+                           onclick="setSort('oldest'); return false;">
+                            <i class="fas fa-arrow-up" aria-hidden="true"></i> Oldest
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Gallery Grid -->
+            <div class="gallery" id="galleryGrid"></div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState" role="status" style="display:none;">
+                <div class="empty-icon"><i class="fas fa-images" aria-hidden="true"></i></div>
+                <h2>No prompts found</h2>
+                <p id="emptyStateText">Your prompt vault is empty. Start archiving your creative prompts!</p>
+                <div class="empty-state-actions">
+                    <button type="button" id="resetFiltersBtn" class="btn btn-ghost" style="display:none;" onclick="resetFilters()">
+                        <i class="fas fa-times" aria-hidden="true"></i> Reset Filters
+                    </button>
+                    <button type="button" id="restoreDemoBtn" class="btn btn-ghost" style="display:none;" onclick="restoreDemoPrompts()">
+                        <i class="fas fa-undo" aria-hidden="true"></i> Restore Sample Prompts
+                    </button>
+                    <a href="#add" class="btn btn-primary" onclick="navigateTo('add'); return false;">
+                        <i class="fas fa-plus" aria-hidden="true"></i> Add First Prompt
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW 2: ADD PROMPT ==================== -->
+        <div id="viewAdd" class="form-page" style="display:none;">
+            <div class="form-card">
+                <div class="form-header">
+                    <div class="form-icon"><i class="fas fa-cloud-upload-alt" aria-hidden="true"></i></div>
+                    <h2>Add New Prompt</h2>
+                    <p>Upload your AI-generated artwork and preserve the exact prompt engineering parameters.</p>
+                </div>
+
+                <form id="addPromptForm" onsubmit="handleAddSubmit(event)">
+                    <div class="input-group">
+                        <label for="image_file">
+                            <i class="fas fa-image" aria-hidden="true"></i> Image File
+                        </label>
+                        <div class="file-drop-area" id="dropArea">
+                            <input type="file"
+                                   id="image_file"
+                                   accept="image/png,image/jpeg,image/gif,image/webp"
+                                   required
+                                   aria-label="Upload artwork file">
+                            <div class="file-drop-label" id="dropLabel">
+                                <i class="fas fa-upload" aria-hidden="true"></i>
+                                <span id="fileLabel">Click to browse or drag an image here</span>
+                                <small>Supported formats: PNG, JPG, JPEG, GIF, WEBP (Max 10 MB, up to 20 MP)</small>
+                            </div>
+                            <img id="preview" src="" alt="Selected image preview" style="display:none;">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <div class="label-with-counter">
+                            <label for="prompt_text">
+                                <i class="fas fa-align-left" aria-hidden="true"></i> Generation Prompt
+                            </label>
+                            <span id="addCharCounter" class="char-counter">0 chars</span>
+                        </div>
+                        <textarea id="prompt_text"
+                                  rows="5"
+                                  placeholder="Paste the complete prompt, negative prompts, or model parameters..."
+                                  required
+                                  aria-describedby="addCharCounter"></textarea>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="category">
+                            <i class="fas fa-tag" aria-hidden="true"></i> Category
+                        </label>
+                        <input type="text"
+                               id="category"
+                               placeholder="e.g. Portrait, Cyberpunk, Landscape, Concept Art"
+                               maxlength="30"
+                               required>
+                        <div class="suggested-tags">
+                            <span class="tags-label">Quick Suggestions:</span>
+                            <button type="button" class="tag-pill" onclick="setAddCategory('Portrait')">Portrait</button>
+                            <button type="button" class="tag-pill" onclick="setAddCategory('Cyberpunk')">Cyberpunk</button>
+                            <button type="button" class="tag-pill" onclick="setAddCategory('Landscape')">Landscape</button>
+                            <button type="button" class="tag-pill" onclick="setAddCategory('Concept Art')">Concept Art</button>
+                            <button type="button" class="tag-pill" onclick="setAddCategory('Architecture')">Architecture</button>
+                            <button type="button" class="tag-pill" onclick="setAddCategory('Sci-Fi')">Sci-Fi</button>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <a href="#gallery" class="btn btn-ghost" onclick="navigateTo('gallery'); return false;">
+                            <i class="fas fa-arrow-left" aria-hidden="true"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-vault" aria-hidden="true"></i> Save to Vault
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW 3: EDIT PROMPT ==================== -->
+        <div id="viewEdit" class="form-page" style="display:none;">
+            <div class="form-card">
+                <div class="form-header">
+                    <div class="form-icon"><i class="fas fa-pen-to-square" aria-hidden="true"></i></div>
+                    <h2>Edit Prompt</h2>
+                    <p>Update the prompt text or category taxonomy for this entry.</p>
+                </div>
+
+                <div class="edit-preview">
+                    <img id="editPreviewImg" src="" alt="Preview of current artwork">
+                </div>
+
+                <form id="editPromptForm" onsubmit="handleEditSubmit(event)">
+                    <input type="hidden" id="editItemId">
+                    <div class="input-group">
+                        <div class="label-with-counter">
+                            <label for="edit_prompt_text">
+                                <i class="fas fa-align-left" aria-hidden="true"></i> Prompt Text
+                            </label>
+                            <span id="editCharCounter" class="char-counter">0 chars</span>
+                        </div>
+                        <textarea id="edit_prompt_text"
+                                  rows="6"
+                                  required
+                                  aria-describedby="editCharCounter"></textarea>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="edit_category">
+                            <i class="fas fa-tag" aria-hidden="true"></i> Category
+                        </label>
+                        <input type="text"
+                               id="edit_category"
+                               maxlength="30"
+                               required>
+                    </div>
+
+                    <div class="form-actions">
+                        <a href="#gallery" class="btn btn-ghost" onclick="navigateTo('gallery'); return false;">
+                            <i class="fas fa-arrow-left" aria-hidden="true"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check" aria-hidden="true"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW 4: ABOUT ==================== -->
+        <div id="viewAbout" class="form-page" style="display:none;">
+            <div class="form-card about-card">
+                <div class="form-header">
+                    <div class="form-icon"><i class="fas fa-vault" aria-hidden="true"></i></div>
+                    <h2>About PromptVault</h2>
+                    <p>AI Prompt Library &amp; Image Asset Manager</p>
+                </div>
+
+                <div class="about-body">
+                    <section class="about-section">
+                        <h3><i class="fas fa-bullseye" aria-hidden="true"></i> Project Overview</h3>
+                        <p>
+                            <strong>PromptVault</strong> solves a common problem in generative AI workflows:
+                            while image generation models produce detailed visual artwork, the exact prompts,
+                            negative prompts, and parameters used to create them are easily lost over time.
+                        </p>
+                        <p>
+                            PromptVault provides a clean web library for uploading AI-generated images,
+                            saving the exact prompts behind them, and organizing everything by category.
+                        </p>
+                    </section>
+
+                    <section class="about-section">
+                        <h3><i class="fas fa-layer-group" aria-hidden="true"></i> Core Capabilities</h3>
+                        <div class="about-features">
+                            <div class="feature-item">
+                                <i class="fas fa-search" aria-hidden="true"></i>
+                                <span>Live search across prompts and categories</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-shield-alt" aria-hidden="true"></i>
+                                <span>Strict image validation &amp; CSRF protection</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-copy" aria-hidden="true"></i>
+                                <span>One-click clipboard prompt copy</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-sitemap" aria-hidden="true"></i>
+                                <span>Schema.org JSON-LD &amp; XML sitemap</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="about-section">
+                        <h3><i class="fas fa-lock" aria-hidden="true"></i> Security Architecture</h3>
+                        <ul class="specs-list">
+                            <li><strong>CSRF Protection:</strong> All state-changing endpoints in the Flask backend require signed CSRF tokens via Flask-WTF.</li>
+                            <li><strong>Deep Image Verification:</strong> Uploaded files are sanitized with Werkzeug and inspected with Pillow to confirm the binary header matches the file extension.</li>
+                            <li><strong>Upload &amp; Pixel Limits:</strong> Requests are capped at 10 MB and image dimensions are limited to 20 megapixels to prevent decompression bombs.</li>
+                            <li><strong>Path Traversal Protection:</strong> File storage and download routes verify canonical paths to ensure files remain strictly inside the uploads directory.</li>
+                            <li><strong>HTTP Security Headers:</strong> Enforces Content-Security-Policy (CSP), X-Content-Type-Options (nosniff), X-Frame-Options (SAMEORIGIN), and strict Referrer-Policy.</li>
+                        </ul>
+                    </section>
+
+                    <section class="about-section">
+                        <h3><i class="fas fa-laptop-code" aria-hidden="true"></i> Technology Stack</h3>
+                        <div class="tech-stack">
+                            <span class="tech-badge">Python 3.13+</span>
+                            <span class="tech-badge">Flask 3.x</span>
+                            <span class="tech-badge">SQLite 3</span>
+                            <span class="tech-badge">Pillow (PIL)</span>
+                            <span class="tech-badge">Flask-WTF</span>
+                            <span class="tech-badge">Jinja2</span>
+                            <span class="tech-badge">HTML5 / CSS3</span>
+                            <span class="tech-badge">Schema.org JSON-LD</span>
+                        </div>
+                    </section>
+
+                    <section class="about-section academic-note-box">
+                        <h3><i class="fas fa-graduation-cap" aria-hidden="true"></i> Academic &amp; Learning Context</h3>
+                        <p>
+                            This application was developed by <strong>Adel Mohamed</strong> as a CS50x Final Project and part of a self-directed learning journey in software engineering, full-stack web development, and application security.
+                        </p>
+                        <p class="academic-text">
+                            Because this project was built for educational purposes while actively learning and experimenting with these technologies, certain architectural patterns or edge cases may still have room for further refinement. Constructive feedback and academic review are always welcome.
+                        </p>
+                    </section>
+                </div>
+
+                <div class="form-actions" style="margin-top:2rem;">
+                    <a href="#gallery" class="btn btn-primary" onclick="navigateTo('gallery'); return false;">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i> Return to Gallery
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== DETAILS MODAL ==================== -->
+        <div id="detailsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="closeDetailsModal(event)">
+            <div class="modal-card" onclick="event.stopPropagation()">
+                <button type="button" class="modal-close" aria-label="Close modal" onclick="closeModal()">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+                <div class="modal-grid">
+                    <div class="modal-image-col">
+                        <img id="modalImage" src="" alt="Selected AI artwork">
+                    </div>
+                    <div class="modal-info-col">
+                        <span id="modalCategory" class="category-badge"></span>
+                        <h3 id="modalTitle" class="modal-heading">Prompt Specification</h3>
+                        <div class="modal-prompt-box">
+                            <p id="modalPromptText"></p>
+                        </div>
+                        <div class="modal-details-meta">
+                            <span id="modalDate" class="timestamp"></span>
+                            <span id="modalCharCount" class="timestamp"></span>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-primary" id="modalCopyBtn" onclick="copyModalPrompt()">
+                                <i class="fas fa-copy" aria-hidden="true"></i> Copy Prompt
+                            </button>
+                            <a href="#" class="btn btn-ghost" id="modalDownloadBtn" download="promptvault-artwork.svg">
+                                <i class="fas fa-download" aria-hidden="true"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="toast-notification" role="status" aria-live="polite"></div>
+
+    <footer role="contentinfo">
+        <div class="footer-content">
+            <p>&copy; 2026 PromptVault | CS50x Final Project</p>
+            <p class="footer-subtitle">by Adel Mohamed</p>
+        </div>
+    </footer>
+
+    <!-- Client-Side Application Engine for GitHub Pages Live Demo -->
+    <script>
+        const STORAGE_KEY = 'promptvault_items_v1';
+        const CATEGORY_REGEX = /^[\w \-]{1,30}$/;
+
+        function createSvgArtwork(bg1, bg2, accent, title, subtitle, shapeType) {
+            let shapes = '';
+            if (shapeType === 'city') {
+                shapes = `
+                    <circle cx="400" cy="170" r="85" fill="${accent}" opacity="0.25"/>
+                    <circle cx="400" cy="170" r="55" fill="${accent}" opacity="0.5"/>
+                    <rect x="70" y="210" width="65" height="290" fill="#090d16" opacity="0.85"/>
+                    <rect x="150" y="160" width="85" height="340" fill="#0b1324" opacity="0.9"/>
+                    <rect x="250" y="230" width="70" height="270" fill="#090d16" opacity="0.85"/>
+                    <rect x="470" y="140" width="95" height="360" fill="#0b1324" opacity="0.9"/>
+                    <rect x="580" y="195" width="75" height="305" fill="#090d16" opacity="0.85"/>
+                    <rect x="670" y="240" width="60" height="260" fill="#0b1324" opacity="0.85"/>
+                    <line x1="0" y1="390" x2="800" y2="390" stroke="${accent}" stroke-width="2" opacity="0.6"/>
+                    <line x1="0" y1="430" x2="800" y2="430" stroke="${accent}" stroke-width="1" opacity="0.35"/>
+                `;
+            } else if (shapeType === 'landscape') {
+                shapes = `
+                    <circle cx="580" cy="150" r="65" fill="${accent}" opacity="0.45"/>
+                    <polygon points="0,420 220,170 450,420" fill="#111c33" opacity="0.9"/>
+                    <polygon points="240,420 490,130 740,420" fill="#0b1528" opacity="0.95"/>
+                    <polygon points="510,420 690,210 800,360 800,420" fill="#152340" opacity="0.85"/>
+                    <rect x="0" y="415" width="800" height="85" fill="#070d19" opacity="0.9"/>
+                `;
+            } else if (shapeType === 'scifi') {
+                shapes = `
+                    <circle cx="400" cy="240" r="140" fill="none" stroke="${accent}" stroke-width="3" opacity="0.5"/>
+                    <circle cx="400" cy="240" r="95" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="10 8" opacity="0.4"/>
+                    <circle cx="400" cy="240" r="48" fill="${accent}" opacity="0.35"/>
+                    <ellipse cx="400" cy="240" rx="220" ry="55" fill="none" stroke="${accent}" stroke-width="2" opacity="0.45" transform="rotate(-18 400 240)"/>
+                `;
+            } else if (shapeType === 'arch') {
+                shapes = `
+                    <polygon points="400,80 650,220 650,430 150,430 150,220" fill="none" stroke="${accent}" stroke-width="2.5" opacity="0.55"/>
+                    <line x1="400" y1="80" x2="400" y2="430" stroke="${accent}" stroke-width="1.5" opacity="0.4"/>
+                    <line x1="275" y1="150" x2="275" y2="430" stroke="#ffffff" stroke-width="1" opacity="0.25"/>
+                    <line x1="525" y1="150" x2="525" y2="430" stroke="#ffffff" stroke-width="1" opacity="0.25"/>
+                    <rect x="210" y="260" width="380" height="110" fill="${accent}" opacity="0.12"/>
+                `;
+            } else if (shapeType === 'portrait') {
+                shapes = `
+                    <circle cx="400" cy="200" r="115" fill="${accent}" opacity="0.18"/>
+                    <circle cx="400" cy="185" r="52" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.6"/>
+                    <path d="M 295 365 C 295 275, 505 275, 505 365" fill="none" stroke="${accent}" stroke-width="3" opacity="0.7"/>
+                    <circle cx="330" cy="140" r="4" fill="#ffffff" opacity="0.5"/>
+                    <circle cx="485" cy="160" r="3" fill="${accent}" opacity="0.8"/>
+                `;
+            } else {
+                shapes = `
+                    <polygon points="400,95 545,345 255,345" fill="none" stroke="${accent}" stroke-width="3" opacity="0.65"/>
+                    <polygon points="400,375 545,125 255,125" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.35"/>
+                    <circle cx="400" cy="235" r="55" fill="${accent}" opacity="0.25"/>
+                `;
+            }
+
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+                <defs>
+                    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="${bg1}"/>
+                        <stop offset="100%" stop-color="${bg2}"/>
+                    </linearGradient>
+                </defs>
+                <rect width="800" height="500" fill="url(#g)"/>
+                ${shapes}
+                <text x="40" y="455" fill="#ffffff" font-family="monospace" font-size="16" font-weight="bold" opacity="0.85">${title}</text>
+                <text x="40" y="478" fill="#94a3b8" font-family="sans-serif" font-size="13" opacity="0.75">${subtitle}</text>
+            </svg>`;
+            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        }
+
+        const DEFAULT_PROMPTS = [
+            {
+                id: 1,
+                category: 'Cyberpunk',
+                prompt_text: 'Neon-drenched futuristic metropolis at midnight, rain-slicked streets reflecting holographic kanji billboards, cinematic volumetric fog, anamorphic lens flare, Unreal Engine 5 render, 8k resolution --ar 16:9 --v 6.0',
+                is_favorite: 1,
+                timestamp: '2026-10-27 14:30:00',
+                image_path: createSvgArtwork('#090d1a', '#1e1b4b', '#06b6d4', 'NEON METROPOLIS // 01', 'Cyberpunk | Volumetric Lighting', 'city')
+            },
+            {
+                id: 2,
+                category: 'Landscape',
+                prompt_text: 'Ethereal alpine mountain range at golden hour, crystal glacial lake reflecting snow-capped peaks, dramatic cirrostratus clouds, shot on Hasselblad H6D-100c, 24mm wide angle, f/8, photorealistic nature photography',
+                is_favorite: 1,
+                timestamp: '2026-10-26 19:15:00',
+                image_path: createSvgArtwork('#0f172a', '#1e3a8a', '#38bdf8', 'ALPINE HORIZON // 02', 'Landscape | Golden Hour', 'landscape')
+            },
+            {
+                id: 3,
+                category: 'Sci-Fi',
+                prompt_text: 'Orbital deep-space research station suspended above a glowing turquoise nebula, intricate solar arrays, hard surface sci-fi concept art in the style of Syd Mead, crisp rim lighting, octane render',
+                is_favorite: 0,
+                timestamp: '2026-10-25 11:40:00',
+                image_path: createSvgArtwork('#050814', '#0f2942', '#3b82f6', 'ORBITAL NEXUS // 03', 'Sci-Fi | Deep Space Concept', 'scifi')
+            },
+            {
+                id: 4,
+                category: 'Architecture',
+                prompt_text: 'Minimalist brutalist concrete library cantilevered over a misty Nordic fjord, warm interior architectural lighting, floor-to-ceiling glass facades, overcast mood, architectural digest photography',
+                is_favorite: 0,
+                timestamp: '2026-10-24 16:20:00',
+                image_path: createSvgArtwork('#0c1322', '#1e293b', '#60a5fa', 'NORDIC PAVILION // 04', 'Architecture | Brutalist Minimal', 'arch')
+            },
+            {
+                id: 5,
+                category: 'Portrait',
+                prompt_text: 'Close-up studio portrait of an astronaut with reflective gold visor showing distant galaxies, dramatic Rembrandt chiaroscuro lighting, ultra-detailed skin texture, 85mm prime lens, f/1.4 bokeh',
+                is_favorite: 1,
+                timestamp: '2026-10-23 09:05:00',
+                image_path: createSvgArtwork('#111827', '#31102f', '#f43f5e', 'ASTRAL VOYAGER // 05', 'Portrait | Studio Chiaroscuro', 'portrait')
+            },
+            {
+                id: 6,
+                category: 'Concept Art',
+                prompt_text: 'Ancient floating monolith sanctuary powered by glowing crystalline geometry, bioluminescent flora, atmospheric perspective, digital matte painting, fantasy environment design, high detail',
+                is_favorite: 0,
+                timestamp: '2026-10-22 21:50:00',
+                image_path: createSvgArtwork('#080e1a', '#132a2e', '#2dd4bf', 'MONOLITH SANCTUARY // 06', 'Concept Art | Matte Painting', 'concept')
+            }
+        ];
+
+        let state = {
+            prompts: [],
+            sort: 'newest',
+            selectedCat: '',
+            showFav: false,
+            q: '',
+            currentModalText: ''
+        };
+
+        let pendingUploadDataUrl = '';
+
+        function loadPrompts() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    state.prompts = JSON.parse(raw);
+                } else {
+                    state.prompts = JSON.parse(JSON.stringify(DEFAULT_PROMPTS));
+                    savePrompts();
+                }
+            } catch (e) {
+                state.prompts = JSON.parse(JSON.stringify(DEFAULT_PROMPTS));
+            }
+        }
+
+        function savePrompts() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state.prompts));
+            } catch (e) {
+                showFlash('Storage limit reached in browser localStorage.', 'error');
+            }
+        }
+
+        function toTitleCase(str) {
+            return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function showFlash(message, category = 'success') {
+            const container = document.getElementById('flashContainer');
+            const icon = category === 'success' ? 'check-circle' : 'exclamation-circle';
+            container.innerHTML = `
+                <div class="flash flash-${category}" role="alert">
+                    <i class="fas fa-${icon}" aria-hidden="true"></i>
+                    <span>${escapeHtml(message)}</span>
+                </div>
+            `;
+            container.style.display = 'flex';
+            setTimeout(() => {
+                container.style.display = 'none';
+            }, 4000);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toastNotification');
+            if (!toast) return;
+            toast.textContent = message;
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 2500);
+        }
+
+        function copyPrompt(text, btn) {
+            const finishCopy = () => {
+                showToast('Prompt copied to clipboard!');
+                if (btn) {
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i>';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.classList.remove('copied');
+                    }, 1800);
+                }
+            };
+
+            if (!navigator.clipboard) {
+                const tempArea = document.createElement('textarea');
+                tempArea.value = text;
+                document.body.appendChild(tempArea);
+                tempArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempArea);
+                finishCopy();
+                return;
+            }
+            navigator.clipboard.writeText(text).then(finishCopy).catch(() => {
+                showToast('Unable to copy prompt.');
+            });
+        }
+
+        function navigateTo(view, itemId = null) {
+            document.getElementById('viewGallery').style.display = view === 'gallery' ? 'block' : 'none';
+            document.getElementById('viewAdd').style.display = view === 'add' ? 'flex' : 'none';
+            document.getElementById('viewEdit').style.display = view === 'edit' ? 'flex' : 'none';
+            document.getElementById('viewAbout').style.display = view === 'about' ? 'flex' : 'none';
+
+            document.getElementById('navGallery').classList.toggle('active', view === 'gallery');
+            document.getElementById('navAbout').classList.toggle('active', view === 'about');
+
+            if (view === 'gallery') {
+                renderGallery();
+            } else if (view === 'add') {
+                document.getElementById('addPromptForm').reset();
+                document.getElementById('preview').style.display = 'none';
+                document.getElementById('fileLabel').textContent = 'Click to browse or drag an image here';
+                document.getElementById('addCharCounter').textContent = '0 chars';
+                pendingUploadDataUrl = '';
+            } else if (view === 'edit' && itemId !== null) {
+                const item = state.prompts.find(p => p.id === itemId);
+                if (!item) {
+                    showFlash('Item not found.', 'error');
+                    navigateTo('gallery');
+                    return;
+                }
+                document.getElementById('editItemId').value = item.id;
+                document.getElementById('editPreviewImg').src = item.image_path;
+                document.getElementById('edit_prompt_text').value = item.prompt_text;
+                document.getElementById('edit_category').value = item.category;
+                document.getElementById('editCharCounter').textContent = item.prompt_text.length + ' chars';
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function setFilterCategory(cat) {
+            state.selectedCat = cat;
+            state.showFav = false;
+            renderGallery();
+        }
+
+        function setFilterFavorites() {
+            state.showFav = true;
+            state.selectedCat = '';
+            renderGallery();
+        }
+
+        function setSort(sortOrder) {
+            state.sort = sortOrder;
+            document.getElementById('sortNewest').classList.toggle('active', sortOrder === 'newest');
+            document.getElementById('sortOldest').classList.toggle('active', sortOrder === 'oldest');
+            renderGallery();
+        }
+
+        function clearSearch() {
+            state.q = '';
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchClearBtn').style.display = 'none';
+            renderGallery();
+        }
+
+        function resetFilters() {
+            state.q = '';
+            state.selectedCat = '';
+            state.showFav = false;
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchClearBtn').style.display = 'none';
+            renderGallery();
+        }
+
+        function restoreDemoPrompts() {
+            state.prompts = JSON.parse(JSON.stringify(DEFAULT_PROMPTS));
+            savePrompts();
+            resetFilters();
+            showFlash('Sample prompts restored to your vault!', 'success');
+        }
+
+        function toggleFavorite(id) {
+            const item = state.prompts.find(p => p.id === id);
+            if (item) {
+                item.is_favorite = item.is_favorite ? 0 : 1;
+                savePrompts();
+                renderGallery();
+            }
+        }
+
+        function deletePrompt(id) {
+            if (!confirm('Are you sure you want to delete this prompt and its artwork?')) return;
+            state.prompts = state.prompts.filter(p => p.id !== id);
+            savePrompts();
+            renderGallery();
+            showFlash('Deleted successfully.', 'success');
+        }
+
+        function renderGallery() {
+            const categories = [...new Set(state.prompts.map(p => p.category))].sort();
+            const favCount = state.prompts.filter(p => p.is_favorite === 1).length;
+
+            document.getElementById('statTotal').textContent = state.prompts.length;
+            document.getElementById('statCategories').textContent = categories.length;
+            document.getElementById('statFavorites').textContent = favCount;
+
+            // Render Filter Chips
+            const filterGroup = document.getElementById('filterGroup');
+            let chipsHtml = `
+                <a href="#all"
+                   class="filter-chip ${!state.selectedCat && !state.showFav ? 'active' : ''}"
+                   role="tab"
+                   onclick="setFilterCategory(''); return false;">
+                    All
+                </a>
+                <a href="#favorites"
+                   class="filter-chip fav-chip ${state.showFav ? 'active' : ''}"
+                   role="tab"
+                   onclick="setFilterFavorites(); return false;">
+                    <i class="fas fa-heart" aria-hidden="true"></i> Favorites
+                </a>
+            `;
+            categories.forEach(cat => {
+                const isActive = state.selectedCat === cat && !state.showFav;
+                chipsHtml += `
+                    <a href="#cat-${encodeURIComponent(cat)}"
+                       class="filter-chip ${isActive ? 'active' : ''}"
+                       role="tab"
+                       onclick="setFilterCategory(${JSON.stringify(cat).replace(/"/g, '&quot;')}); return false;">
+                        ${escapeHtml(cat)}
+                    </a>
+                `;
+            });
+            filterGroup.innerHTML = chipsHtml;
+
+            // Filter & Sort Prompts
+            let filtered = state.prompts.slice();
+            if (state.showFav) {
+                filtered = filtered.filter(p => p.is_favorite === 1);
+            } else if (state.selectedCat) {
+                filtered = filtered.filter(p => p.category === state.selectedCat);
+            }
+
+            if (state.q) {
+                const query = state.q.toLowerCase();
+                filtered = filtered.filter(p =>
+                    p.prompt_text.toLowerCase().includes(query) ||
+                    p.category.toLowerCase().includes(query)
+                );
+            }
+
+            filtered.sort((a, b) => {
+                if (state.sort === 'newest') {
+                    return b.timestamp.localeCompare(a.timestamp) || (b.id - a.id);
+                }
+                return a.timestamp.localeCompare(b.timestamp) || (a.id - b.id);
+            });
+
+            const grid = document.getElementById('galleryGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            if (filtered.length === 0) {
+                grid.style.display = 'none';
+                emptyState.style.display = 'flex';
+                const emptyText = document.getElementById('emptyStateText');
+                if (state.q) {
+                    emptyText.innerHTML = `No results matching query "<strong>${escapeHtml(state.q)}</strong>".`;
+                } else if (state.selectedCat) {
+                    emptyText.innerHTML = `No prompts found in category "<strong>${escapeHtml(state.selectedCat)}</strong>" yet.`;
+                } else if (state.showFav) {
+                    emptyText.textContent = 'You have not favorited any prompts yet.';
+                } else {
+                    emptyText.textContent = 'Your prompt vault is empty. Start archiving your creative prompts!';
+                }
+                document.getElementById('resetFiltersBtn').style.display =
+                    (state.q || state.selectedCat || state.showFav) ? 'inline-flex' : 'none';
+                document.getElementById('restoreDemoBtn').style.display =
+                    state.prompts.length === 0 ? 'inline-flex' : 'none';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            grid.style.display = 'grid';
+
+            grid.innerHTML = filtered.map((p, idx) => {
+                const shortAlt = p.prompt_text.length > 80 ? p.prompt_text.substring(0, 80) + '...' : p.prompt_text;
+                const dateOnly = p.timestamp.substring(0, 10);
+                const ext = p.image_path.startsWith('data:image/svg') ? 'svg' : 'png';
+                const downloadName = `${p.category.toLowerCase().replace(/\s+/g, '-')}-${p.id}.${ext}`;
+
+                return `
+                <article class="card" style="animation-delay: ${idx * 0.05}s">
+                    <div class="image-box">
+                        <img src="${p.image_path}"
+                             alt="AI Prompt: ${escapeHtml(shortAlt)}"
+                             loading="lazy">
+
+                        <div class="card-overlay">
+                            <button type="button"
+                                    class="overlay-btn"
+                                    title="View Details"
+                                    aria-label="View prompt details"
+                                    onclick="openDetailsModal(${p.id})">
+                                <i class="fas fa-expand-alt" aria-hidden="true"></i>
+                            </button>
+
+                            <button type="button"
+                                    class="overlay-btn"
+                                    title="Copy Prompt"
+                                    aria-label="Copy prompt text"
+                                    onclick="copyPromptById(${p.id}, this)">
+                                <i class="fas fa-copy" aria-hidden="true"></i>
+                            </button>
+
+                            <a href="${p.image_path}"
+                               download="${downloadName}"
+                               class="overlay-btn"
+                               title="Download Original"
+                               aria-label="Download image">
+                                <i class="fas fa-download" aria-hidden="true"></i>
+                            </a>
+
+                            <a href="#edit-${p.id}"
+                               class="overlay-btn"
+                               title="Edit Prompt"
+                               aria-label="Edit prompt"
+                               onclick="navigateTo('edit', ${p.id}); return false;">
+                                <i class="fas fa-pen" aria-hidden="true"></i>
+                            </a>
+
+                            <button type="button"
+                                    class="overlay-btn danger"
+                                    title="Delete Prompt"
+                                    aria-label="Delete prompt entry"
+                                    onclick="deletePrompt(${p.id})">
+                                <i class="fas fa-trash" aria-hidden="true"></i>
+                            </button>
+                        </div>
+
+                        <div class="fav-form">
+                            <button type="button"
+                                    class="fav-btn ${p.is_favorite ? 'is-fav' : ''}"
+                                    title="${p.is_favorite ? 'Remove from favorites' : 'Mark as favorite'}"
+                                    aria-label="Toggle favorite"
+                                    onclick="toggleFavorite(${p.id})">
+                                <i class="fas fa-heart" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card-content">
+                        <div class="card-meta-header">
+                            <span class="category-badge">${escapeHtml(p.category)}</span>
+                            <button type="button"
+                                    class="btn-text-copy"
+                                    title="Quick Copy"
+                                    aria-label="Copy prompt"
+                                    onclick="copyPromptById(${p.id}, this)">
+                                <i class="fas fa-copy" aria-hidden="true"></i> Copy
+                            </button>
+                        </div>
+                        <p class="prompt-text" title="${escapeHtml(p.prompt_text)}">"${escapeHtml(p.prompt_text)}"</p>
+                        <div class="card-footer">
+                            <span class="timestamp">
+                                <i class="fas fa-clock" aria-hidden="true"></i> ${escapeHtml(dateOnly)}
+                            </span>
+                            <button type="button"
+                                    class="card-view-link"
+                                    onclick="openDetailsModal(${p.id})">
+                                Details <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                </article>
+                `;
+            }).join('');
+        }
+
+        function copyPromptById(id, btn) {
+            const item = state.prompts.find(p => p.id === id);
+            if (item) {
+                copyPrompt(item.prompt_text, btn);
+            }
+        }
+
+        function openDetailsModal(id) {
+            const item = state.prompts.find(p => p.id === id);
+            if (!item) return;
+
+            const ext = item.image_path.startsWith('data:image/svg') ? 'svg' : 'png';
+            const downloadName = `${item.category.toLowerCase().replace(/\s+/g, '-')}-${item.id}.${ext}`;
+
+            document.getElementById('modalImage').src = item.image_path;
+            document.getElementById('modalImage').alt = 'AI Artwork: ' + item.prompt_text.substring(0, 60);
+            document.getElementById('modalCategory').textContent = item.category;
+            document.getElementById('modalPromptText').textContent = item.prompt_text;
+            document.getElementById('modalDate').innerHTML = '<i class="fas fa-calendar-alt"></i> Added on ' + escapeHtml(item.timestamp.substring(0, 10));
+            document.getElementById('modalCharCount').innerHTML = '<i class="fas fa-keyboard"></i> ' + item.prompt_text.length + ' chars';
+            document.getElementById('modalDownloadBtn').href = item.image_path;
+            document.getElementById('modalDownloadBtn').setAttribute('download', downloadName);
+
+            state.currentModalText = item.prompt_text;
+            document.getElementById('detailsModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            document.getElementById('detailsModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function closeDetailsModal(e) {
+            if (e.target.id === 'detailsModal') {
+                closeModal();
+            }
+        }
+
+        function copyModalPrompt() {
+            const btn = document.getElementById('modalCopyBtn');
+            copyPrompt(state.currentModalText, btn);
+        }
+
+        function setAddCategory(name) {
+            document.getElementById('category').value = name;
+        }
+
+        function handleAddSubmit(e) {
+            e.preventDefault();
+            const prompt = document.getElementById('prompt_text').value.trim();
+            const rawCat = document.getElementById('category').value.trim();
+            const cat = toTitleCase(rawCat);
+
+            if (!prompt || !cat) {
+                showFlash('Please fill in all fields.', 'error');
+                return;
+            }
+            if (!CATEGORY_REGEX.test(cat)) {
+                showFlash('Category can only contain letters, numbers, spaces, - and _ (max 30 characters).', 'error');
+                return;
+            }
+            if (!pendingUploadDataUrl) {
+                showFlash('Please select a valid image file.', 'error');
+                return;
+            }
+
+            const now = new Date();
+            const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+            const nextId = state.prompts.reduce((max, p) => Math.max(max, p.id), 0) + 1;
+
+            state.prompts.unshift({
+                id: nextId,
+                image_path: pendingUploadDataUrl,
+                prompt_text: prompt,
+                category: cat,
+                is_favorite: 0,
+                timestamp: timestamp
+            });
+
+            savePrompts();
+            navigateTo('gallery');
+            showFlash('Prompt added successfully!', 'success');
+        }
+
+        function handleEditSubmit(e) {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('editItemId').value, 10);
+            const newPrompt = document.getElementById('edit_prompt_text').value.trim();
+            const rawCat = document.getElementById('edit_category').value.trim();
+            const newCat = toTitleCase(rawCat);
+
+            if (!newPrompt || !newCat) {
+                showFlash('Please fill in all fields.', 'error');
+                return;
+            }
+            if (!CATEGORY_REGEX.test(newCat)) {
+                showFlash('Category can only contain letters, numbers, spaces, - and _ (max 30 characters).', 'error');
+                return;
+            }
+
+            const item = state.prompts.find(p => p.id === id);
+            if (item) {
+                item.prompt_text = newPrompt;
+                item.category = newCat;
+                savePrompts();
+                navigateTo('gallery');
+                showFlash('Updated successfully!', 'success');
+            }
+        }
+
+        // Initialize Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPrompts();
+            renderGallery();
+
+            const searchInput = document.getElementById('searchInput');
+            const searchClearBtn = document.getElementById('searchClearBtn');
+            searchInput.addEventListener('input', function() {
+                state.q = this.value.trim();
+                searchClearBtn.style.display = state.q ? 'grid' : 'none';
+                renderGallery();
+            });
+
+            const addPromptText = document.getElementById('prompt_text');
+            const addCharCounter = document.getElementById('addCharCounter');
+            addPromptText.addEventListener('input', function() {
+                addCharCounter.textContent = this.value.length + ' chars';
+            });
+
+            const editPromptText = document.getElementById('edit_prompt_text');
+            const editCharCounter = document.getElementById('editCharCounter');
+            editPromptText.addEventListener('input', function() {
+                editCharCounter.textContent = this.value.length + ' chars';
+            });
+
+            // File Upload & Validation
+            const fileInput = document.getElementById('image_file');
+            const preview = document.getElementById('preview');
+            const fileLabel = document.getElementById('fileLabel');
+            const dropArea = document.getElementById('dropArea');
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+            function processUploadedFile(file) {
+                if (!file) return;
+                if (!allowedTypes.includes(file.type)) {
+                    showFlash('Invalid file type. Please upload an image (png, jpg, jpeg, gif, webp).', 'error');
+                    fileInput.value = '';
+                    pendingUploadDataUrl = '';
+                    preview.style.display = 'none';
+                    return;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                    showFlash('Upload too large. The complete request must not exceed 10 MB.', 'error');
+                    fileInput.value = '';
+                    pendingUploadDataUrl = '';
+                    preview.style.display = 'none';
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const dataUrl = e.target.result;
+                    const img = new Image();
+                    img.onload = () => {
+                        if (img.width * img.height > 20000000) {
+                            showFlash('Please upload a valid image, with matching extension and at most 20 million pixels.', 'error');
+                            fileInput.value = '';
+                            pendingUploadDataUrl = '';
+                            preview.style.display = 'none';
+                            return;
+                        }
+                        pendingUploadDataUrl = dataUrl;
+                        fileLabel.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+                        preview.src = dataUrl;
+                        preview.style.display = 'block';
+                    };
+                    img.onerror = () => {
+                        showFlash('Please upload a valid image file.', 'error');
+                        fileInput.value = '';
+                        pendingUploadDataUrl = '';
+                        preview.style.display = 'none';
+                    };
+                    img.src = dataUrl;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    processUploadedFile(this.files[0]);
+                }
+            });
+
+            ['dragenter', 'dragover'].forEach(evt => {
+                dropArea.addEventListener(evt, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropArea.classList.add('dragover');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(evt => {
+                dropArea.addEventListener(evt, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropArea.classList.remove('dragover');
+                });
+            });
+
+            dropArea.addEventListener('drop', e => {
+                const files = e.dataTransfer.files;
+                if (files && files.length) {
+                    processUploadedFile(files[0]);
+                }
+            });
+        });
+
+        // Global Hotkeys
+        document.addEventListener('keydown', e => {
+            if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput && document.getElementById('viewGallery').style.display !== 'none') {
+                    e.preventDefault();
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            } else if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

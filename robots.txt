@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://adel-dev-2001.github.io/PromptVault/sitemap.xml
