@@ -34,7 +34,7 @@
       "@type": "WebApplication",
       "name": "PromptVault",
       "url": "{{ request.url_root }}",
-      "description": "Enterprise-grade digital vault for organizing, filtering, and retrieving AI prompts and artwork.",
+      "description": "Web application for organizing, filtering, and retrieving AI-generated images and their prompts.",
       "applicationCategory": "DesignApplication",
       "operatingSystem": "All",
       "author": {
@@ -57,6 +57,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="manifest" href="/static/manifest.json">
 </head>
 <body>
     <!-- Skip to main content link for accessibility -->
@@ -103,7 +104,7 @@
 
     <footer role="contentinfo">
         <div class="footer-content">
-            <p>&copy; 2026 PromptVault &mdash; CS50x Final Project</p>
+            <p>&copy; 2026 PromptVault | CS50x Final Project</p>
             <p class="footer-subtitle">by Adel Mohamed</p>
         </div>
     </footer>
@@ -133,7 +134,7 @@
                 return;
             }
             navigator.clipboard.writeText(text).then(() => {
-                showToast('Prompt copied to clipboard! ✓');
+                showToast('Prompt copied to clipboard!');
                 if (btn) {
                     const originalHTML = btn.innerHTML;
                     btn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i>';

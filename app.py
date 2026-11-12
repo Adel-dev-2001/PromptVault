@@ -1,11 +1,8 @@
 """
-PromptVault — Enterprise-Grade AI Prompt Library & Asset Management System
-===========================================================================
-A production-ready Flask application designed for cataloging, categorizing,
-and securely managing generative AI prompts and their corresponding artworks.
-
-Implements defense-in-depth security, strict file verification, OWASP headers,
-Schema.org structured data, and high-performance search and indexing.
+PromptVault - AI Prompt Library & Image Asset Manager
+=====================================================
+A Flask web application for cataloging, categorizing, and managing
+generative AI prompts and their corresponding image files.
 """
 
 import os

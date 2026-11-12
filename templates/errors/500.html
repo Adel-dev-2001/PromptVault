@@ -1,14 +1,14 @@
 {% extends "layout.html" %}
 
-{% block title %}500 — Server Error | PromptVault{% endblock %}
+{% block title %}PromptVault{% endblock %}
 
 {% block content %}
 <div class="form-page">
     <div class="form-card error-card">
         <div class="form-header">
             <div class="form-icon error-icon"><i class="fas fa-server" aria-hidden="true"></i></div>
-            <h2>500 — Internal Server Error</h2>
-            <p>An unexpected error occurred while processing your request. The engineering team has been notified.</p>
+            <h2>500 - Internal Server Error</h2>
+            <p>An unexpected error occurred while processing your request. Please try again later.</p>
         </div>
         <div class="error-actions">
             <a href="/" class="btn btn-primary"><i class="fas fa-arrow-left"></i> Return to Gallery</a>
@@ -16,4 +16,3 @@
     </div>
 </div>
 {% endblock %}
-

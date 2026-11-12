@@ -1,5 +1,5 @@
 # ==============================================================================
-# PromptVault — Production Multi-Stage Dockerfile
+# PromptVault - Production Multi-Stage Dockerfile
 # ==============================================================================
 FROM python:3.13-slim AS base
 

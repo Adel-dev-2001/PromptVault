@@ -1,6 +1,6 @@
 /* =========================================
-   PromptVault — Enterprise CSS Stylesheet
-   Dark Glassmorphism · Space Mono + DM Sans
+   PromptVault - Main Stylesheet
+   Dark Glassmorphism | Space Mono + DM Sans
    ========================================= */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap');
@@ -1125,7 +1125,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .specs-list li::before {
-    content: "▹";
+    content: "-";
     position: absolute;
     left: 0;
     color: var(--accent);

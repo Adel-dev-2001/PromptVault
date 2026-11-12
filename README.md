@@ -1,145 +1,140 @@
-# PromptVault — AI Prompt Library
+<div align="center">
 
-**CS50x Final Project | by [Adel Mohamed](https://github.com/Adel-dev-2001)**
+  <img src="static/favicon.svg" alt="PromptVault Logo" width="88" />
 
-Video Demo: [https://youtu.be/-prDHVKBQtc](https://youtu.be/-prDHVKBQtc)
+  # PromptVault
+  ### AI Prompt Library & Image Asset Manager
+
+  CS50x Final Project | Built and maintained by [**Adel Mohamed**](https://github.com/Adel-dev-2001)
+
+  [![Python](https://img.shields.io/badge/Python-3.13%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+  [![Flask](https://img.shields.io/badge/Flask-3.1.3-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+  [![SQLite](https://img.shields.io/badge/Database-SQLite_3-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+  [![Pillow](https://img.shields.io/badge/Imaging-Pillow_13.0-3b82f6?style=flat-square)](https://python-pillow.org/)
+  [![Tests](https://img.shields.io/badge/Tests-16_Passing-2ea44f?style=flat-square)](#automated-test-suite)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square)](LICENSE)
+
+  [**Video Demonstration**](https://youtu.be/-prDHVKBQtc) | [**Source Repository**](https://github.com/Adel-dev-2001/PromptVault)
+
+</div>
 
 ---
 
-## Executive Summary & System Overview
+## Overview
 
-In generative artificial intelligence pipelines (e.g., Midjourney, Stable Diffusion, DALL-E, Flux), a persistent industry problem is the **decoupling of generative artwork from its underlying engineering metadata**. Practitioners generate compelling digital imagery, yet frequently lose the complex prompt strings, negative weights, tokens, seed values, and parameter models required to reproduce or refine the work.
+**PromptVault** is a full-stack web application built with Python, Flask, and SQLite for storing, categorizing, and retrieving AI-generated images alongside the exact prompts used to create them. When working with image generation models (such as Midjourney, Stable Diffusion, DALL-E, or Flux), users frequently save the output image but lose the prompt text, negative prompts, and parameter settings that produced it. PromptVault keeps the artwork and its prompt together in a searchable local library.
 
-**PromptVault** is an enterprise-ready, defensive web application engineered to serve as a high-security digital vault. It provides persistent relational indexing of AI artwork alongside exact prompt engineering parameters, offering category-based taxonomy, live text search, dynamic social graph previews (OpenGraph/Twitter Cards), Schema.org semantic metadata, and strict file validation against polyglot and decompression vulnerabilities.
+Note that PromptVault does not generate images itself. Instead, it acts as a dedicated library and asset manager for organizing images generated elsewhere together with their prompt metadata.
 
 ---
 
-## Academic Statement & Research Pedagogy
+## Academic & Learning Context Note
 
-### *Official Submission Note for the Russian Government Scholarship Selection Committee*
-*(Академическое заявление для комиссии стипендиальной программы Правительства Российской Федерации)*
-
-> ### **Academic Context & Intellectual Inquiry**
-> This project was conceptualized, designed, and implemented by Adel Mohamed as a CS50x Final Project capstone within an academic learning trajectory exploring modern computer science, full-stack software architecture, application security, and generative AI tools. The central academic goal was to translate fundamental computing theories—including relational database modeling, defense-in-depth security, and semantic web discovery—into a robust, production-viable software system.
+> **Note for Academic Reviewers and Evaluation Committees:**
 >
-> ### **Methodology & Critical Engagement with AI Technologies**
-> In alignment with modern academic frameworks that encourage ethical and reflective adoption of cutting-edge computing tools, generative artificial intelligence utilities were employed throughout development as **collaborative pedagogical instruments**. Specifically, large language models were utilized for architectural brainstorming, iterative code review, adversarial security testing, and technical documentation drafting. 
+> This project was developed by **Adel Mohamed** (originally created as a CS50x Final Project and further refined as part of a self-directed learning journey in software engineering, backend web development, application security, and AI workflow tooling). The primary educational goals of building PromptVault were to gain hands-on experience in:
+> - Designing server-rendered web applications using Python, Flask, and Jinja2 templates.
+> - Managing relational data in SQLite with parameterized queries and B-tree indexes.
+> - Implementing defensive file upload validation (verifying binary image headers with Pillow, enforcing payload and pixel limits, and preventing path traversal vulnerabilities).
+> - Applying web security best practices, including CSRF protection, strict HTTP security headers (CSP, Nosniff, X-Frame-Options), and automated unit testing with Python's `unittest` framework.
+> - Exploring how AI-assisted development tools can support debugging, code review, and security hardening while verifying and writing the core implementation and test suite first-hand.
 >
-> In accordance with academic honesty principles, all architectural patterns, security controls, SQL constraints, and code implementations were critically reviewed, modified, and validated by the author to ensure technical rigor and complete conceptual mastery.
->
-> ### **Commitment to Continuous Academic Growth**
-> In the spirit of scientific integrity and lifelong scholarly pursuit, the author acknowledges that this codebase represents a significant milestone within an ongoing learning continuum. While enterprise engineering standards—including OWASP Top 10 mitigations, strict CSP headers, parameterized SQL, and a comprehensive 16-point automated test suite—have been rigorously implemented, the author views this work as a living foundation subject to ongoing refinement, peer review, and academic evaluation. Constructive critique and academic inquiry are welcomed as catalysts for continuous mastery.
+> Because this application was built as an educational project while actively learning and experimenting with these technologies, certain architectural patterns or edge cases may still have room for further refinement and optimization. Constructive feedback and academic review are always welcome as part of this ongoing learning process.
 
 ---
 
-## System Architecture
+## Key Features
 
-The application is structured following clean architectural separation of concerns:
+### 1. Gallery, Live Search & Filtering
+- **Real-Time Search (`/q`):** Search across saved prompt text and category names directly from the main gallery toolbar, with a global `/` keyboard shortcut to focus the search input.
+- **Category & Favorites Filtering:** Filter the library by dynamically generated category chips or view only favorited prompts.
+- **Chronological Sorting:** Sort entries by newest or oldest while preserving active search queries, category filters, and favorite views.
+- **Vault Metrics Banner:** Displays live counters for total prompts stored, active categories, and favorited entries.
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        Presentation Layer (UI)                         │
-│   Jinja2 Templates · Dark Glassmorphism CSS · WCAG Accessible HTML5   │
-│   Responsive Layout · Details Modal · Clipboard API · Search Hotkeys   │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │ HTTP Requests / CSRF Tokens
-┌───────────────────────────────────▼────────────────────────────────────┐
-│                  Application & Middleware Layer (Flask)                │
-│   Authentication & CSRF Protection (Flask-WTF)                         │
-│   HTTP Security Middleware (CSP, HSTS, X-Frame-Options, Nosniff)       │
-│   Dynamic Search & Query Parsing · Error Handlers (400, 403, 404, 500) │
-│   SEO Endpoints (/robots.txt & dynamic /sitemap.xml)                   │
-└───────────────────┬────────────────────────────────┬───────────────────┘
-                    │                                │
-┌───────────────────▼─────────────┐   ┌──────────────▼───────────────────┐
-│     Secure File Verification    │   │      Persistence Layer (Data)     │
-│   Werkzeug secure_filename      │   │   SQLite Relational Engine        │
-│   Pillow Deep Header Inspection │   │   B-Tree Indexes (Category, Fav)  │
-│   20 MP Decompression Limit     │   │   Parameterized SQL Statements    │
-│   Isolated Directory Sync       │   │   Zero SQL Injection Exposure     │
-└─────────────────────────────────┘   └──────────────────────────────────┘
-```
+### 2. Prompt Inspection & Clipboard Workflow
+- **One-Click Prompt Copy:** Copy any prompt directly to the system clipboard from the gallery card or detail modal, accompanied by a non-intrusive toast notification.
+- **High-Resolution Detail Modal:** Open a fullscreen lightbox view for any entry to inspect the full-resolution image, complete prompt text, character count, creation date, and direct download link (`Esc` key supported).
+
+### 3. Upload Pipeline & File Organization
+- **Interactive Drag-and-Drop Upload (`/add`):** Supports both file browsing and drag-and-drop image selection with instant client-side image preview, live character counting, and quick-fill category suggestion tags.
+- **Category-Based Directory Sync:** Uploaded images are stored under `static/uploads/<Category>/`. If a duplicate filename exists in the same category, an incremental suffix (for example, `artwork_1.png`) is appended automatically so existing files are never overwritten.
+- **Automatic File Relocation on Edit (`/edit/<id>`):** Updating an entry's category automatically moves the image file on disk to the new category directory, updates the database path, and removes the old directory if it becomes empty.
+- **Clean Deletion (`/delete/<id>`):** Deleting an entry removes both the database record and the underlying image file from disk, pruning the category folder if no other files remain.
 
 ---
 
-## Security & Defensive Engineering (OWASP Alignment)
+## Security & SEO Implementation
 
-PromptVault is engineered with a **defense-in-depth** security posture:
+### Security Measures
+- **CSRF Protection:** All state-changing `POST` routes (`/add`, `/edit/<id>`, `/delete/<id>`, `/favorite/<id>`) require valid CSRF tokens managed by `Flask-WTF`. Missing or invalid tokens return `HTTP 400`.
+- **Deep Image Verification:** Uploaded files are checked against an explicit extension whitelist (`png`, `jpg`, `jpeg`, `gif`, `webp`), sanitized via Werkzeug's `secure_filename`, and opened with `PIL.Image` to verify that the actual binary image format matches the file extension.
+- **Decompression Bomb & Payload Limits:** Complete HTTP requests are capped at `10 MB` (`MAX_CONTENT_LENGTH`), and image dimensions are restricted to a maximum of `20,000,000` pixels (`MAX_IMAGE_PIXELS`).
+- **Path Traversal Prevention:** Category names are validated with a strict regular expression (`^[\w \-]{1,30}$`). File resolution in `upload_path_from_url()` and `/download/<path:filename>` verifies canonical containment via `os.path.commonpath` so files outside `static/uploads/` can never be read, moved, or deleted.
+- **Parameterized SQL Queries:** All user-supplied values are bound via parameterized SQL placeholders (`?`), preventing SQL injection across search, filter, insert, and update operations.
+- **HTTP Security Headers:** Every response includes `Content-Security-Policy` (CSP), `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy` (disabling camera, microphone, geolocation, and payment APIs).
 
-| Threat Vector | Mitigation Strategy & Implementation | Status |
-| :--- | :--- | :---: |
-| **Cross-Site Request Forgery (CSRF)** | Synchronizer token pattern enforced via `Flask-WTF` across all state-altering endpoints (`POST /add`, `/edit`, `/delete`, `/favorite`). Unauthenticated or forged submissions trigger HTTP 400. | **Mitigated** |
-| **SQL Injection (SQLi)** | 100% of database queries utilize parameterized SQL placeholders (`?`). Dynamic sorting clauses are strictly whitelist-mapped to `("ASC", "DESC")`. | **Mitigated** |
-| **Polyglot & Malicious File Uploads** | Multi-phase validation: file extensions are whitelisted (`png`, `jpg`, `jpeg`, `gif`, `webp`), followed by deep raster verification via `PIL.Image.verify()` ensuring byte-header agreement. | **Mitigated** |
-| **Decompression Bombs (DoS)** | Total request payload is restricted to 10 MB (`MAX_CONTENT_LENGTH`), and image raster dimensions are strictly capped at 20 million pixels. | **Mitigated** |
-| **Path Traversal & LFI** | Canonical filesystem resolution via `os.path.commonpath([upload_root, full_path]) == upload_root`. Traversal sequences (`../`, null bytes) are blocked with HTTP 404. | **Mitigated** |
-| **Cross-Site Scripting (XSS)** | Strict `Content-Security-Policy` (CSP) allows only whitelisted style/font CDNs; Jinja2 auto-escapes user inputs; dangerous inline event handlers are removed. | **Mitigated** |
-| **Clickjacking & Sniffing** | HTTP headers enforce `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: strict-origin-when-cross-origin`. | **Mitigated** |
-| **Hardware Privacy Leakage** | `Permissions-Policy` header explicitly disables `geolocation`, `camera`, `microphone`, and `payment` APIs. | **Mitigated** |
-
----
-
-## SEO, Semantic Web & Discoverability
-
-PromptVault is fully optimized for search engine crawlers and social media rich snippets:
-
-- **Schema.org Structured Data (JSON-LD):** Implements `WebApplication` on global templates and `ImageGallery` on collection views, enabling rich search engine indexing.
-- **OpenGraph & Twitter Cards:** Full metadata coverage (`og:title`, `og:description`, `og:image`, `og:url`, `twitter:card`) ensuring professional preview embeds on Telegram, LinkedIn, X, and WhatsApp.
-- **Automated XML Sitemap:** Dynamic `/sitemap.xml` endpoint automatically enumerates all public routes and category filters with update frequencies and priority weightings.
-- **Crawler Directives:** Dedicated `/robots.txt` endpoint instructs search engine bots, permitting indexable galleries while safeguarding administrative endpoints.
-- **Accessibility & Semantics:** HTML5 landmarks (`<main>`, `<header>`, `<nav>`, `<article>`), dynamic descriptive `alt` tags based on prompt text, keyboard hotkeys (`/` for search, `Esc` for modals), and a screen-reader skip link.
+### SEO & Structured Data
+- **Metadata & Social Cards:** Configured in `templates/layout.html` with canonical URLs, meta descriptions, keywords, Open Graph (`og:*`) tags, and Twitter Card metadata.
+- **Schema.org JSON-LD:** Embeds structured data graphs for `WebApplication` (site-wide) and `ImageGallery` (on the main gallery view).
+- **Search Engine Endpoints:** Provides dynamic `/robots.txt` and `/sitemap.xml` routes, plus a Web App Manifest (`static/manifest.json`) and custom vector icon (`static/favicon.svg`).
+- **Semantic HTML & Accessibility:** Uses semantic HTML5 landmarks (`<header>`, `<nav>`, `<main>`, `<article>`, `<footer>`), dynamic `alt` attributes derived from prompt text, ARIA labels on icon buttons, and a keyboard skip-to-content link.
 
 ---
 
-## Core Features & Commercial Capabilities
+## Technology Stack
 
-1. **Live Search & Taxonomy Filtering:** Instant search engine querying prompts and categories simultaneously with zero lag.
-2. **One-Click Prompt Synchronization:** Integrated clipboard synchronization button copying prompts directly for immediate pasting into Midjourney or Stable Diffusion.
-3. **High-Resolution Inspection Modal:** Fullscreen interactive lightbox showcasing high-resolution art previews, complete prompt texts, character counters, and download links.
-4. **Dynamic Category Organization:** Images are saved in category-segregated storage on disk (`static/uploads/<Category>/`); updating a category safely reorganizes files on disk without dangling orphaned folders.
-5. **Interactive Drag-and-Drop Uploader:** Modern upload zone supporting drag-and-drop, real-time image preview, and one-click suggested category tags.
-6. **Dark Glassmorphism Interface:** Responsive, GPU-accelerated aesthetic built with native CSS variables, backdrop blur filters, and micro-animations.
+| Layer | Technology |
+| :--- | :--- |
+| **Backend Framework** | Python 3.13+ & Flask 3.1.3 |
+| **Database** | SQLite 3 (via CS50 SQL & `sqlite3` with B-tree indexes) |
+| **Security & Forms** | Flask-WTF 1.3.0 (CSRF Protection) & Werkzeug 3.1.9 |
+| **Image Verification** | Pillow (PIL) 13.0.0 |
+| **Frontend Templates** | Jinja2, Semantic HTML5, Vanilla JavaScript |
+| **Styling** | Custom CSS3 (Dark Glassmorphism, CSS Variables, Responsive Grid) |
+| **Production WSGI** | Gunicorn (Linux/Docker) / Waitress (Windows) |
 
 ---
 
-## Directory Structure
+## Project Structure
 
-```
-PromptVault-main/
-├── .env.example              # Environment variables template
-├── .gitignore                # Git ignore rules for virtualenv, DBs, and uploads
-├── app.py                    # Core Flask application, routing, and security
-├── Procfile                  # Cloud deployment process definition (Render/Heroku)
-├── README.md                 # System documentation & academic statement
-├── requirements.txt          # Pinned production Python dependencies
-├── test_app.py               # Comprehensive 16-point automated test suite
-├── wsgi.py                   # Production WSGI server entry point
+```text
+PromptVault/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                  # GitHub Actions CI pipeline running the 16 unit tests
 ├── static/
-│   ├── favicon.svg           # High-resolution vector lock icon
-│   ├── styles.css            # Dark glassmorphism styles & responsive layout
+│   ├── favicon.svg                 # Custom SVG vault icon matching the header logo
+│   ├── manifest.json               # Web App Manifest for PWA & mobile metadata
+│   ├── styles.css                  # Main stylesheet (dark glassmorphism & responsive layout)
 │   └── uploads/
-│       └── .gitkeep          # Upload directory anchor
-└── templates/
-    ├── layout.html           # Base layout (SEO, OpenGraph, JSON-LD, Navigation)
-    ├── index.html            # Main gallery, search, stats banner & lightbox modal
-    ├── add.html              # Drag-and-drop upload form with category suggestions
-    ├── edit.html             # Edit prompt form with live preview
-    ├── about.html            # System architecture, specs & academic statement
-    └── errors/
-        ├── 400.html          # Custom Bad Request & CSRF error page
-        ├── 403.html          # Custom Forbidden error page
-        ├── 404.html          # Custom Page Not Found page
-        ├── 413.html          # Custom Payload Too Large page
-        └── 500.html          # Custom Server Error page
+│       └── .gitkeep                # Preserves the uploads directory in Git
+├── templates/
+│   ├── errors/                     # Custom HTTP error pages (400, 403, 404, 413, 500)
+│   ├── about.html                  # Project overview, security specs, and academic note
+│   ├── add.html                    # Upload form with drag-and-drop preview & tag pills
+│   ├── edit.html                   # Edit prompt text and category form
+│   ├── index.html                  # Main gallery, search bar, filters, and detail modal
+│   └── layout.html                 # Base template (SEO meta tags, JSON-LD, nav, footer)
+├── .env.example                    # Example environment variable configuration
+├── .gitignore                      # Excludes .venv, __pycache__, *.db, and uploaded images
+├── app.py                          # Main Flask application, routes, validation, and headers
+├── Dockerfile                      # Production container definition
+├── docker-compose.yml              # Docker Compose service and persistent volume config
+├── LICENSE                         # MIT License
+├── Procfile                        # Process definition for cloud platforms (Render/Heroku)
+├── README.md                       # Project documentation
+├── requirements.txt                # Pinned Python dependencies
+├── test_app.py                     # Automated unit test suite (16 test cases)
+└── wsgi.py                         # WSGI entry point for production servers
 ```
 
 ---
 
-## Local Setup & Installation
+## Getting Started Locally
 
 ### Prerequisites
-- Python 3.10+ (Tested through Python 3.15)
-- Git & pip
+- **Python** (3.10 or newer; tested through Python 3.15)
+- **pip** (Python package installer)
 
 ### 1. Clone the Repository
 ```bash
@@ -147,7 +142,7 @@ git clone https://github.com/Adel-dev-2001/PromptVault.git
 cd PromptVault
 ```
 
-### 2. Configure Virtual Environment
+### 2. Create and Activate a Virtual Environment
 
 **Windows (PowerShell):**
 ```powershell
@@ -167,92 +162,79 @@ pip install -r requirements.txt
 ```
 
 ### 4. Configure Environment Variables (Optional)
-Copy `.env.example` to `.env`:
+Copy `.env.example` to `.env` if you want to set a persistent `SECRET_KEY` or custom port:
 ```bash
 cp .env.example .env
 ```
-Configure your custom `SECRET_KEY` or allow PromptVault to generate an ephemeral cryptographically secure key at runtime.
+If `SECRET_KEY` is not set, the app generates a random 32-byte key on startup.
 
-### 5. Run Automated Tests
+### 5. Run the Automated Test Suite
 ```bash
 python -m unittest -v test_app.py
 ```
 
-### 6. Launch the Application
+### 6. Start the Application
 ```bash
 python app.py
 ```
-Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser.
+Open `http://127.0.0.1:5000` in your browser. The SQLite database (`prompts.db`) and `images` table are created automatically on first run.
 
 ---
 
-## Production Deployment Guide
+## Production Deployment
 
-PromptVault includes a standard WSGI entry point (`wsgi.py`) for enterprise deployment:
+PromptVault includes `wsgi.py`, `Procfile`, `Dockerfile`, and `docker-compose.yml` for running in production environments:
 
-### Deployment with Gunicorn (Linux / Container)
+### Option 1: Gunicorn (Linux / macOS)
 ```bash
 pip install gunicorn
 gunicorn --workers 4 --bind 0.0.0.0:5000 wsgi:app
 ```
 
-### Deployment with Waitress (Windows Production Server)
-```bash
+### Option 2: Waitress (Windows)
+```powershell
 pip install waitress
 waitress-serve --port=5000 wsgi:app
 ```
 
-### Docker Deployment
-```dockerfile
-FROM python:3.13-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
-COPY . .
-EXPOSE 5000
-CMD ["gunicorn", "--workers", "3", "--bind", "0.0.0.0:5000", "wsgi:app"]
+### Option 3: Docker Compose
+```bash
+docker compose up -d --build
 ```
 
 ---
 
-## Automated Testing & Verification
+## Automated Test Suite
 
-The application is accompanied by a comprehensive test suite in `test_app.py`, achieving 100% pass rates across 16 critical test cases:
+The `test_app.py` suite runs 16 isolated unit tests in a temporary workspace to verify all routes and security boundaries:
 
-1. `test_gallery_and_headers`: Validates HTTP 200 response and `X-Content-Type-Options: nosniff`.
-2. `test_security_headers_and_csp`: Verifies Content-Security-Policy, X-Frame-Options, and Permissions-Policy.
-3. `test_missing_csrf_is_rejected`: Confirms all mutating endpoints reject requests lacking valid CSRF tokens.
-4. `test_valid_image_upload_and_download`: Tests end-to-end binary upload, database registration, and safe retrieval.
-5. `test_fake_image_rejected`: Asserts non-image byte streams masquerading with image extensions are rejected.
-6. `test_mismatched_extension_rejected`: Verifies header/extension discrepancy detection.
-7. `test_invalid_category_rejected`: Tests regex rejection of path traversal characters in category names.
-8. `test_search_filtering`: Validates safe parameterized search across prompt text and categories.
-9. `test_favorite_filter_survives_sort`: Confirms persistence of query state across combined filters and sorts.
-10. `test_edit_and_delete`: Tests full lifecycle mutation and safe disk cleanup.
-11. `test_edit_category_moves_image_file`: Confirms dynamic filesystem directory relocation upon category modification.
-12. `test_request_size_limit`: Confirms HTTP 413 response upon payload limit breach.
-13. `test_download_traversal_rejected`: Validates path traversal attempts (`../`) are safely halted with HTTP 404.
-14. `test_robots_and_sitemap`: Confirms `/robots.txt` and `/sitemap.xml` conform to search engine specifications.
-15. `test_schema_json_ld_present`: Verifies presence of valid Schema.org semantic metadata.
-16. `test_custom_404_template`: Verifies themed custom error handling.
-
----
-
-## Technology Stack
-
-- **Backend Runtime:** Python 3.13+
-- **Web Framework:** Flask 3.1.3
-- **Security & Forms:** Flask-WTF 1.3.0 / Werkzeug 3.1.9
-- **Image Processing & Verification:** Pillow (PIL) 13.0.0
-- **Database:** SQLite 3 with parameterized queries & B-tree indexes
-- **Frontend Engine:** Jinja2 templating, Semantic HTML5, CSS3 Glassmorphism
-- **Iconography & Fonts:** FontAwesome 6.4.0 & Google Fonts (Space Mono / DM Sans)
-- **Metadata Standards:** Schema.org (JSON-LD), OpenGraph Protocol, Twitter Cards
+1. `test_gallery_and_headers`: Checks `GET /` status (`200 OK`) and `X-Content-Type-Options: nosniff`.
+2. `test_security_headers_and_csp`: Verifies `Content-Security-Policy`, `X-Frame-Options`, and `Permissions-Policy` headers.
+3. `test_missing_csrf_is_rejected`: Ensures `POST` requests to `/add`, `/edit/1`, `/delete/1`, and `/favorite/1` without a CSRF token return `HTTP 400`.
+4. `test_valid_image_upload_and_download`: Verifies uploading a valid PNG image, storing its database record, and downloading the file from `/download/<path>`.
+5. `test_fake_image_rejected`: Confirms non-image binary data with a `.png` extension is rejected with `HTTP 400`.
+6. `test_mismatched_extension_rejected`: Confirms a PNG file renamed to `.jpg` is rejected when Pillow inspects the header.
+7. `test_invalid_category_rejected`: Verifies path traversal strings (`../outside`) and control characters in category names are rejected.
+8. `test_search_filtering`: Tests live search queries (`/?q=...`) for both matching and non-matching terms.
+9. `test_favorite_filter_survives_sort`: Ensures favorite filtering (`favorites=1`) persists across sort order toggles (`sort=oldest`).
+10. `test_edit_and_delete`: Tests updating prompt text and category, followed by deleting the entry and verifying file removal on disk.
+11. `test_edit_category_moves_image_file`: Confirms changing an entry's category moves the image file to the new category folder and cleans up the old folder.
+12. `test_request_size_limit`: Verifies requests exceeding `MAX_CONTENT_LENGTH` return `HTTP 413`.
+13. `test_download_traversal_rejected`: Confirms `/download/../prompts.db` is blocked with `HTTP 404`.
+14. `test_robots_and_sitemap`: Validates `/robots.txt` (`text/plain`) and `/sitemap.xml` (`application/xml`).
+15. `test_schema_json_ld_present`: Checks that `WebApplication` and `ImageGallery` JSON-LD schemas render in the HTML output.
+16. `test_custom_404_template`: Verifies unknown routes return `HTTP 404` using the custom error template.
 
 ---
 
-## License & Attribution
+## Author
 
-Developed by **[Adel Mohamed](https://github.com/Adel-dev-2001)** — GitHub: [@Adel-dev-2001](https://github.com/Adel-dev-2001)  
-*Presented as a CS50x Final Project and Academic Portfolio Capstone.*  
-*Licensed under the [MIT License](LICENSE).*
+- **Adel Mohamed**
+- **GitHub:** [@Adel-dev-2001](https://github.com/Adel-dev-2001)
+- **Repository:** [github.com/Adel-dev-2001/PromptVault](https://github.com/Adel-dev-2001/PromptVault)
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
