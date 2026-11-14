@@ -37,7 +37,6 @@ Note that PromptVault does not generate images itself. Instead, it acts as a ded
 > - Managing relational data in SQLite with parameterized queries and B-tree indexes.
 > - Implementing defensive file upload validation (verifying binary image headers with Pillow, enforcing payload and pixel limits, and preventing path traversal vulnerabilities).
 > - Applying web security best practices, including CSRF protection, strict HTTP security headers (CSP, Nosniff, X-Frame-Options), and automated unit testing with Python's `unittest` framework.
-> - Exploring how AI-assisted development tools can support debugging, code review, and security hardening while verifying and writing the core implementation and test suite first-hand.
 >
 > Because this application was built as an educational project while actively learning and experimenting with these technologies, certain architectural patterns or edge cases may still have room for further refinement and optimization. Constructive feedback and academic review are always welcome as part of this ongoing learning process.
 

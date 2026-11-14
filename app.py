@@ -1,8 +1,6 @@
 """
-PromptVault - AI Prompt Library & Image Asset Manager
-=====================================================
-A Flask web application for cataloging, categorizing, and managing
-generative AI prompts and their corresponding image files.
+PromptVault: Flask application for storing and organizing AI-generated images
+alongside the prompts used to create them.
 """
 
 import os
@@ -26,48 +24,32 @@ from flask_wtf.csrf import CSRFProtect
 from PIL import Image, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
-# Optional: Load environment variables from .env file if available
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
 
-# -----------------------------------------------------------------------------
-# Application Factory & Configuration
-# -----------------------------------------------------------------------------
 app = Flask(__name__)
-
-# Security: Session & CSRF Key Configuration
 app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32)
 
-# File Upload Policies & Constraints
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
-MAX_IMAGE_PIXELS = 20_000_000  # 20 Megapixels ceiling against decompression bombs
-MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB maximum request payload
+MAX_IMAGE_PIXELS = 20_000_000
+MAX_CONTENT_LENGTH = 10 * 1024 * 1024
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-# Initialize CSRF Protection
 csrf = CSRFProtect(app)
-
-# Validation Patterns: Alphanumeric, spaces, hyphens, underscores (1 to 30 chars)
 CATEGORY_PATTERN = re.compile(r"^[\w \-]{1,30}$")
 
-# -----------------------------------------------------------------------------
-# Database Initialization & Setup
-# -----------------------------------------------------------------------------
 database_path = os.path.abspath(os.environ.get("DATABASE_PATH", "prompts.db"))
-
-# Ensure database file exists before opening it via CS50 SQL
 sqlite3.connect(database_path).close()
 db = SQL(f"sqlite:///{database_path}")
 
-# Schema migration and table initialization
 db.execute("""
     CREATE TABLE IF NOT EXISTS images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,20 +61,15 @@ db.execute("""
     )
 """)
 
-# Performance indexes for fast querying and filtering
 db.execute("CREATE INDEX IF NOT EXISTS idx_images_category ON images (category)")
 db.execute("CREATE INDEX IF NOT EXISTS idx_images_favorite ON images (is_favorite)")
 db.execute("CREATE INDEX IF NOT EXISTS idx_images_timestamp ON images (timestamp)")
 
-# Ensure base uploads directory exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-# -----------------------------------------------------------------------------
-# Security & Path Resolution Utilities
-# -----------------------------------------------------------------------------
 def allowed_file(filename: str) -> bool:
-    """Validate whether the file has an approved image extension."""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
@@ -124,11 +101,7 @@ def valid_category(name: str) -> bool:
 
 
 def upload_path_from_url(image_path: str):
-    """
-    Resolve a stored /static/uploads URL to an absolute filesystem path.
-    Guarantees that the resolved path is strictly contained within UPLOAD_FOLDER,
-    preventing path traversal and symlink vulnerabilities.
-    """
+    """Resolve a /static/uploads URL to an absolute path inside UPLOAD_FOLDER."""
     prefix = "/static/uploads/"
     if not isinstance(image_path, str) or not image_path.startswith(prefix):
         return None
@@ -140,26 +113,17 @@ def upload_path_from_url(image_path: str):
         if os.path.commonpath([upload_root, full_path]) != upload_root:
             return None
     except ValueError:
-        # Cross-drive path resolution on Windows systems
         return None
     return full_path
 
 
-# -----------------------------------------------------------------------------
-# Security Headers & Defense-in-Depth Middleware
-# -----------------------------------------------------------------------------
 @app.after_request
 def security_headers(response):
-    """
-    Inject comprehensive HTTP security headers to protect against XSS,
-    clickjacking, MIME-sniffing, and unauthorized hardware access.
-    """
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=(), payment=()"
 
-    # Content Security Policy (CSP) allowing Google Fonts and FontAwesome CDNs
     csp_directives = [
         "default-src 'self'",
         "img-src 'self' data: https: blob:",
@@ -178,9 +142,6 @@ def security_headers(response):
     return response
 
 
-# -----------------------------------------------------------------------------
-# Error Handlers
-# -----------------------------------------------------------------------------
 @app.errorhandler(400)
 def bad_request_error(error):
     return render_template("errors/400.html", error=error), 400
@@ -198,7 +159,6 @@ def not_found_error(error):
 
 @app.errorhandler(413)
 def upload_too_large(error):
-    # Maintain exact message compatibility with test assertions
     return "Upload too large. The complete request must not exceed 10 MB.", 413
 
 
@@ -207,15 +167,8 @@ def internal_error(error):
     return render_template("errors/500.html", error=error), 500
 
 
-# -----------------------------------------------------------------------------
-# Application Routes
-# -----------------------------------------------------------------------------
 @app.route("/")
 def index():
-    """
-    Main gallery view supporting text search, category filtering,
-    favorites toggling, and sorting.
-    """
     categories = db.execute("SELECT DISTINCT category FROM images ORDER BY category")
     sort = request.args.get("sort", "newest")
     selected_cat = request.args.get("category", "")
@@ -224,7 +177,6 @@ def index():
 
     order = "DESC" if sort == "newest" else "ASC"
 
-    # Construct safe parameterized queries
     if q:
         search_pattern = f"%{q}%"
         if show_fav:
@@ -509,12 +461,8 @@ def download_file(filename: str):
     )
 
 
-# -----------------------------------------------------------------------------
-# SEO & Search Engine Endpoints (robots.txt & sitemap.xml)
-# -----------------------------------------------------------------------------
 @app.route("/robots.txt")
 def robots_txt():
-    """Serve robots.txt file with proper crawler directives."""
     base_url = request.url_root.rstrip("/")
     lines = [
         "User-agent: *",
@@ -533,7 +481,6 @@ def robots_txt():
 
 @app.route("/sitemap.xml")
 def sitemap_xml():
-    """Dynamically generate standard XML Sitemap indexing all public routes."""
     base_url = request.url_root.rstrip("/")
     categories = db.execute("SELECT DISTINCT category FROM images ORDER BY category")
 
@@ -571,9 +518,6 @@ def sitemap_xml():
     return Response("\n".join(xml_lines), mimetype="application/xml")
 
 
-# -----------------------------------------------------------------------------
-# Local Development Server Entry Point
-# -----------------------------------------------------------------------------
 if __name__ == "__main__":
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", 5000))
