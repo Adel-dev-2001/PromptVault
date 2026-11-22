@@ -3,8 +3,6 @@
    Dark Glassmorphism | Space Mono + DM Sans
    ========================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap');
-
 /* ---------- CSS Custom Properties ---------- */
 :root {
     --bg:           #080e1a;
@@ -14,16 +12,18 @@
     --glass-border: rgba(255, 255, 255, 0.08);
     --glass-hover:  rgba(255, 255, 255, 0.14);
     --accent:       #3b82f6;
+    --accent-btn:   #2563eb;
+    --accent-text:  #60a5fa;
     --accent-glow:  rgba(59, 130, 246, 0.3);
-    --accent-dark:  #2563eb;
+    --accent-dark:  #1d4ed8;
     --accent-2:     #06b6d4;
-    --danger:       #ef4444;
-    --danger-glow:  rgba(239, 68, 68, 0.3);
-    --success:      #22c55e;
-    --success-glow: rgba(34, 197, 94, 0.3);
+    --danger:       #dc2626;
+    --danger-glow:  rgba(220, 38, 38, 0.3);
+    --success:      #16a34a;
+    --success-glow: rgba(22, 163, 74, 0.3);
     --text:         #e2e8f0;
     --text-muted:   #94a3b8;
-    --fav:          #ef4444;
+    --fav:          #dc2626;
     --radius-sm:    0.5rem;
     --radius:       0.85rem;
     --radius-lg:    1.25rem;
@@ -57,6 +57,14 @@ body {
     background-size: 40px 40px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--accent-text);
+    outline-offset: 2px;
 }
 
 /* Skip link for screen readers */
@@ -306,6 +314,14 @@ nav {
     align-items: center;
 }
 
+.filter-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    list-style: none;
+}
+
 .filter-chip {
     padding: 0.45rem 1.05rem;
     border-radius: 999px;
@@ -329,16 +345,16 @@ nav {
 }
 
 .filter-chip.active {
-    background: var(--accent);
+    background: var(--accent-btn);
     color: white;
-    border-color: var(--accent);
+    border-color: var(--accent-btn);
     box-shadow: 0 0 14px var(--accent-glow);
 }
 
 .fav-chip.active {
     background: var(--fav);
     border-color: var(--fav);
-    box-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
+    box-shadow: 0 0 14px rgba(220, 38, 38, 0.35);
 }
 
 .sort-group {
@@ -368,9 +384,9 @@ nav {
 }
 
 .sort-btn.active {
-    color: var(--accent);
+    color: var(--accent-text);
     border-color: var(--accent);
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(59, 130, 246, 0.12);
 }
 
 /* ---------- Gallery Grid ---------- */
@@ -439,7 +455,8 @@ nav {
     transition: opacity 0.25s ease;
 }
 
-.card:hover .card-overlay {
+.card:hover .card-overlay,
+.card:focus-within .card-overlay {
     opacity: 1;
 }
 
@@ -533,9 +550,9 @@ nav {
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    background: var(--accent-glow);
-    color: var(--accent);
-    border: 1px solid rgba(59, 130, 246, 0.3);
+    background: rgba(37, 99, 235, 0.28);
+    color: #93c5fd;
+    border: 1px solid rgba(96, 165, 250, 0.35);
 }
 
 .btn-text-copy {
@@ -551,7 +568,7 @@ nav {
 }
 
 .btn-text-copy:hover {
-    color: var(--accent);
+    color: var(--accent-text);
 }
 
 .prompt-text {
@@ -586,7 +603,7 @@ nav {
 .card-view-link {
     background: transparent;
     border: none;
-    color: var(--accent);
+    color: var(--accent-text);
     font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
@@ -729,7 +746,7 @@ nav {
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    background: var(--accent);
+    background: var(--accent-btn);
     color: white;
     padding: 0.8rem 1.4rem;
     border-radius: var(--radius);
@@ -802,7 +819,7 @@ nav {
 }
 
 .btn-primary {
-    background: var(--accent);
+    background: var(--accent-btn);
     color: white;
     box-shadow: 0 0 16px var(--accent-glow);
 }
@@ -871,6 +888,7 @@ nav {
     box-shadow: 0 0 24px var(--accent-glow);
 }
 
+.form-header h1,
 .form-header h2 {
     font-family: 'Space Mono', monospace;
     font-size: 1.5rem;
@@ -933,7 +951,7 @@ textarea:focus {
 }
 
 input::placeholder, textarea::placeholder {
-    color: rgba(148, 163, 184, 0.6);
+    color: var(--text-muted);
 }
 
 /* File Drop Area */
@@ -981,8 +999,8 @@ input::placeholder, textarea::placeholder {
 }
 
 .file-drop-label small {
-    font-size: 0.75rem;
-    opacity: 0.75;
+    font-size: 0.78rem;
+    color: var(--text-muted);
 }
 
 #preview {
@@ -1064,6 +1082,7 @@ input::placeholder, textarea::placeholder {
     line-height: 1.75;
 }
 
+.about-section h2,
 .about-section h3 {
     font-family: 'Space Mono', monospace;
     font-size: 1.05rem;
@@ -1074,8 +1093,9 @@ input::placeholder, textarea::placeholder {
     gap: 0.5rem;
 }
 
+.about-section h2 i,
 .about-section h3 i {
-    color: var(--accent);
+    color: var(--accent-text);
 }
 
 .about-section p {
@@ -1196,8 +1216,8 @@ footer {
 
 .footer-subtitle {
     margin-top: 0.35rem;
-    font-size: 0.75rem;
-    opacity: 0.6;
+    font-size: 0.78rem;
+    color: var(--text-muted);
 }
 
 /* ---------- Accessibility Helpers ---------- */
@@ -1260,3 +1280,20 @@ body.modal-open {
     .modal-info-col { padding: 1.5rem; }
     .modal-image-col { max-height: 300px; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .card {
+        opacity: 1;
+    }
+}
+

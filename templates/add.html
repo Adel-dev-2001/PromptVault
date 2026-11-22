@@ -1,15 +1,16 @@
 {% extends "layout.html" %}
 
-{% block title %}PromptVault{% endblock %}
-{% block meta_description %}Archive an AI-generated image with its exact generation prompt, category, and metadata in PromptVault.{% endblock %}
+{% block title %}Add prompt | PromptVault{% endblock %}
+{% block meta_description %}Upload an image and save its prompt text and category in PromptVault.{% endblock %}
+{% block meta_robots %}noindex, follow{% endblock %}
 
 {% block content %}
 <div class="form-page">
     <div class="form-card">
         <div class="form-header">
             <div class="form-icon"><i class="fas fa-cloud-upload-alt" aria-hidden="true"></i></div>
-            <h2>Add New Prompt</h2>
-            <p>Upload your AI-generated artwork and preserve the exact prompt engineering parameters.</p>
+            <h1>Add New Prompt</h1>
+            <p>Upload an image file and save the prompt text used to generate it.</p>
         </div>
 
         <form action="/add" method="post" enctype="multipart/form-data" id="addPromptForm">

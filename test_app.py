@@ -521,17 +521,74 @@ class PromptVaultTests(unittest.TestCase):
                 self.fail(f"Unexpected inline event handler: {name}={value}")
 
     def test_robots_and_sitemap(self):
+        self.upload(category="Examples")
         robots_res = self.client.get("/robots.txt")
         self.assertEqual(robots_res.status_code, 200)
         self.assertEqual(robots_res.mimetype, "text/plain")
-        self.assertIn("Disallow: /delete/", robots_res.get_data(as_text=True))
-        self.assertIn("Sitemap:", robots_res.get_data(as_text=True))
+        robots_text = robots_res.get_data(as_text=True)
+        self.assertIn("Disallow: /add", robots_text)
+        self.assertIn("Disallow: /delete/", robots_text)
+        self.assertIn("Sitemap:", robots_text)
 
         sitemap_res = self.client.get("/sitemap.xml")
         self.assertEqual(sitemap_res.status_code, 200)
         self.assertEqual(sitemap_res.mimetype, "application/xml")
-        self.assertIn("<urlset", sitemap_res.get_data(as_text=True))
-        self.assertIn("<loc>", sitemap_res.get_data(as_text=True))
+        sitemap_text = sitemap_res.get_data(as_text=True)
+        self.assertIn("<urlset", sitemap_text)
+        locs = re.findall(r"<loc>([^<]+)</loc>", sitemap_text)
+        self.assertEqual(locs, ["http://localhost/", "http://localhost/about"])
+
+    def test_seo_metadata_headings_and_accessibility(self):
+        self.upload(category="Examples")
+        pages = [
+            ("/", "Gallery | PromptVault", "index, follow"),
+            ("/about", "About | PromptVault", "index, follow"),
+            ("/add", "Add prompt | PromptVault", "noindex, follow"),
+            ("/?q=test", "Gallery | PromptVault", "noindex, follow"),
+            ("/?category=Examples", "Gallery | PromptVault", "noindex, follow"),
+            ("/?sort=oldest", "Gallery | PromptVault", "noindex, follow"),
+        ]
+        seen_descriptions = set()
+        for url, expected_title, expected_robots in pages:
+            with self.subTest(url=url):
+                res = self.client.get(url)
+                self.assertEqual(res.status_code, 200)
+                html = res.get_data(as_text=True)
+                self.assertIn(f"<title>{expected_title}</title>", html)
+                self.assertNotIn('<meta name="keywords"', html)
+                self.assertIn(f'<meta name="robots" content="{expected_robots}"', html)
+                self.assertEqual(len(re.findall(r"<h1\b", html)), 1)
+                self.assertIn(
+                    'property="og:image" content="http://localhost/static/og-card.png"', html
+                )
+                self.assertIn('property="og:image:width" content="1200"', html)
+                self.assertIn('property="og:image:height" content="630"', html)
+                desc_match = re.search(r'<meta name="description" content="([^"]+)"', html)
+                self.assertIsNotNone(desc_match)
+                if not url.startswith("/?"):
+                    seen_descriptions.add(desc_match.group(1))
+                if url.startswith("/?"):
+                    self.assertIn('<link rel="canonical" href="http://localhost/">', html)
+
+        self.assertEqual(len(seen_descriptions), 3)
+
+        gallery_html = self.client.get("/").get_data(as_text=True)
+        self.assertNotIn('class="card-overlay" aria-hidden="true"', gallery_html)
+        self.assertNotIn('role="tablist"', gallery_html)
+        self.assertNotIn('role="tab"', gallery_html)
+        self.assertIn('aria-current="true"', gallery_html)
+
+        static_dir = Path(__file__).resolve().parent / "static"
+        with Image.open(static_dir / "og-card.png") as og_img:
+            self.assertEqual(og_img.size, (1200, 630))
+        for icon_name, expected_size in [
+            ("icon-192.png", (192, 192)),
+            ("icon-512.png", (512, 512)),
+            ("icon-maskable-512.png", (512, 512)),
+            ("apple-touch-icon.png", (180, 180)),
+        ]:
+            with Image.open(static_dir / icon_name) as icon_img:
+                self.assertEqual(icon_img.size, expected_size)
 
     def test_schema_json_ld_present(self):
         res = self.client.get("/")

@@ -1,17 +1,19 @@
 {% extends "layout.html" %}
 
-{% block title %}PromptVault{% endblock %}
+{% block title %}Bad Request (400) | PromptVault{% endblock %}
+{% block meta_description %}HTTP 400 bad request error page in PromptVault.{% endblock %}
+{% block meta_robots %}noindex{% endblock %}
 
 {% block content %}
 <div class="form-page">
     <div class="form-card error-card">
         <div class="form-header">
             <div class="form-icon error-icon"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></div>
-            <h2>400 - Bad Request</h2>
-            <p>The request could not be processed due to invalid syntax, missing CSRF token, or malformed data.</p>
+            <h1>400 - Bad Request</h1>
+            <p>The request could not be processed due to invalid input or a missing CSRF token.</p>
         </div>
         <div class="error-actions">
-            <a href="/" class="btn btn-primary"><i class="fas fa-arrow-left"></i> Return to Gallery</a>
+            <a href="/" class="btn btn-primary"><i class="fas fa-arrow-left" aria-hidden="true"></i> Return to Gallery</a>
         </div>
     </div>
 </div>

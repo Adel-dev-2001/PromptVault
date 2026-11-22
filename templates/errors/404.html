@@ -1,17 +1,19 @@
 {% extends "layout.html" %}
 
-{% block title %}PromptVault{% endblock %}
+{% block title %}Page Not Found (404) | PromptVault{% endblock %}
+{% block meta_description %}HTTP 404 page not found error page in PromptVault.{% endblock %}
+{% block meta_robots %}noindex{% endblock %}
 
 {% block content %}
 <div class="form-page">
     <div class="form-card error-card">
         <div class="form-header">
             <div class="form-icon error-icon"><i class="fas fa-ghost" aria-hidden="true"></i></div>
-            <h2>404 - Page Not Found</h2>
-            <p>The prompt, image, or page you are looking for does not exist or may have been moved.</p>
+            <h1>404 - Page Not Found</h1>
+            <p>The prompt, image, or page you requested does not exist or has been removed.</p>
         </div>
         <div class="error-actions">
-            <a href="/" class="btn btn-primary"><i class="fas fa-arrow-left"></i> Return to Gallery</a>
+            <a href="/" class="btn btn-primary"><i class="fas fa-arrow-left" aria-hidden="true"></i> Return to Gallery</a>
         </div>
     </div>
 </div>

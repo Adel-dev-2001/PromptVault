@@ -5,7 +5,7 @@ import os
 import re
 import secrets
 import sqlite3
-from urllib.parse import quote_plus, unquote, urlsplit
+from urllib.parse import unquote, urlsplit
 
 from cs50 import SQL
 from flask import (
@@ -547,6 +547,7 @@ def robots_txt():
         "Allow: /",
         "Allow: /static/",
         "Allow: /about",
+        "Disallow: /add",
         "Disallow: /edit/",
         "Disallow: /delete/",
         "Disallow: /favorite/",
@@ -560,8 +561,6 @@ def robots_txt():
 @app.route("/sitemap.xml")
 def sitemap_xml():
     base_url = request.url_root.rstrip("/")
-    categories = db.execute("SELECT DISTINCT category FROM images ORDER BY category")
-
     xml_lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
@@ -575,26 +574,8 @@ def sitemap_xml():
         "    <changefreq>monthly</changefreq>",
         "    <priority>0.8</priority>",
         "  </url>",
-        "  <url>",
-        f"    <loc>{base_url}/add</loc>",
-        "    <changefreq>weekly</changefreq>",
-        "    <priority>0.7</priority>",
-        "  </url>",
+        "</urlset>",
     ]
-
-    for cat in categories:
-        safe_cat = quote_plus(str(cat["category"]))
-        xml_lines.extend(
-            [
-                "  <url>",
-                f"    <loc>{base_url}/?category={safe_cat}</loc>",
-                "    <changefreq>daily</changefreq>",
-                "    <priority>0.6</priority>",
-                "  </url>",
-            ]
-        )
-
-    xml_lines.append("</urlset>")
     return Response("\n".join(xml_lines), mimetype="application/xml")
 
 

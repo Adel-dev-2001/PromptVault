@@ -1,17 +1,19 @@
 {% extends "layout.html" %}
 
-{% block title %}PromptVault{% endblock %}
+{% block title %}Internal Server Error (500) | PromptVault{% endblock %}
+{% block meta_description %}HTTP 500 internal server error page in PromptVault.{% endblock %}
+{% block meta_robots %}noindex{% endblock %}
 
 {% block content %}
 <div class="form-page">
     <div class="form-card error-card">
         <div class="form-header">
             <div class="form-icon error-icon"><i class="fas fa-server" aria-hidden="true"></i></div>
-            <h2>500 - Internal Server Error</h2>
+            <h1>500 - Internal Server Error</h1>
             <p>An unexpected error occurred while processing your request. Please try again later.</p>
         </div>
         <div class="error-actions">
-            <a href="/" class="btn btn-primary"><i class="fas fa-arrow-left"></i> Return to Gallery</a>
+            <a href="/" class="btn btn-primary"><i class="fas fa-arrow-left" aria-hidden="true"></i> Return to Gallery</a>
         </div>
     </div>
 </div>

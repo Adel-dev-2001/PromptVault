@@ -5,36 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}PromptVault{% endblock %}</title>
 
-    <!-- SEO Meta Tags -->
-    <meta name="description" content="{% block meta_description %}PromptVault is a high-performance, secure digital library for archiving, categorizing, and retrieving AI image prompts and generated artwork.{% endblock %}">
-    <meta name="keywords" content="AI prompts, Midjourney prompts, Stable Diffusion, DALL-E, prompt vault, AI image generator, prompt engineering, prompt catalog">
+    <meta name="description" content="{% block meta_description %}Store, categorize, search, and retrieve prompts alongside image assets in PromptVault.{% endblock %}">
     <meta name="author" content="Adel Mohamed">
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="{% block meta_robots %}index, follow{% endblock %}">
     <meta name="theme-color" content="#080e1a">
-    <link rel="canonical" href="{{ request.base_url }}">
+    <link rel="canonical" href="{% block canonical_url %}{{ request.base_url }}{% endblock %}">
 
-    <!-- Open Graph / Facebook -->
     <meta property="og:site_name" content="PromptVault">
     <meta property="og:type" content="website">
-    <meta property="og:title" content="PromptVault">
-    <meta property="og:description" content="A secure, elegant library for organizing AI-generated artwork and prompts.">
-    <meta property="og:url" content="{{ request.base_url }}">
-    <meta property="og:image" content="{{ request.url_root }}static/favicon.svg">
+    <meta property="og:title" content="{{ self.title() }}">
+    <meta property="og:description" content="{{ self.meta_description() }}">
+    <meta property="og:url" content="{{ self.canonical_url() }}">
+    <meta property="og:image" content="{{ url_for('static', filename='og-card.png', _external=True) }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="PromptVault prompt library and image asset archive preview">
 
-    <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="PromptVault">
-    <meta name="twitter:description" content="{% block twitter_description %}A secure, elegant library for organizing AI-generated artwork and prompts.{% endblock %}">
-    <meta name="twitter:image" content="{{ request.url_root }}static/favicon.svg">
+    <meta name="twitter:title" content="{{ self.title() }}">
+    <meta name="twitter:description" content="{{ self.meta_description() }}">
+    <meta name="twitter:image" content="{{ url_for('static', filename='og-card.png', _external=True) }}">
+    <meta name="twitter:image:alt" content="PromptVault prompt library and image asset archive preview">
 
-    <!-- Schema.org JSON-LD Structured Data -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
       "name": "PromptVault",
       "url": "{{ request.url_root }}",
-      "description": "Web application for organizing, filtering, and retrieving AI-generated images and their prompts.",
+      "description": "Web application for storing, filtering, and retrieving generated images and their prompts.",
       "applicationCategory": "DesignApplication",
       "operatingSystem": "All",
       "author": {
@@ -50,17 +49,22 @@
     </script>
     {% block extra_schema %}{% endblock %}
 
-    <!-- Stylesheets & Fonts -->
     <link rel="stylesheet" href="/static/styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" media="print" data-async-css="all">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap" media="print" data-async-css="all">
+    <noscript>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap">
+    </noscript>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
     <link rel="manifest" href="/static/manifest.json">
 </head>
 <body>
-    <!-- Skip to main content link for accessibility -->
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
     <header role="banner">
@@ -69,22 +73,21 @@
             PromptVault
         </a>
         <nav aria-label="Main Navigation">
-            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
+            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" {% if request.path == '/' %}aria-current="page"{% endif %}>
                 <i class="fas fa-th-large" aria-hidden="true"></i> Gallery
             </a>
-            <a href="/about" class="nav-link {% if request.path == '/about' %}active{% endif %}">
+            <a href="/about" class="nav-link {% if request.path == '/about' %}active{% endif %}" {% if request.path == '/about' %}aria-current="page"{% endif %}>
                 <i class="fas fa-info-circle" aria-hidden="true"></i> About
             </a>
-            <a href="/add" class="btn btn-primary" aria-label="Add new prompt">
+            <a href="/add" class="btn btn-primary" aria-label="Add new prompt" {% if request.path == '/add' %}aria-current="page"{% endif %}>
                 <i class="fas fa-plus" aria-hidden="true"></i> Add Prompt
             </a>
         </nav>
     </header>
 
-    <!-- Flash Notification Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            <div class="flash-container" role="region" aria-label="System notifications">
+            <div class="flash-container" role="region" aria-label="Notifications">
                 {% for category, message in messages %}
                     <div class="flash flash-{{ category }}" role="alert">
                         <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}" aria-hidden="true"></i>
@@ -99,7 +102,6 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Toast Notification for Asynchronous Feedback -->
     <div id="toastNotification" class="toast-notification" role="status" aria-live="polite"></div>
 
     <footer role="contentinfo">

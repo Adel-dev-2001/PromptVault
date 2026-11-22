@@ -1,20 +1,24 @@
 {% extends "layout.html" %}
 
-{% block title %}PromptVault{% endblock %}
+{% block title %}Gallery | PromptVault{% endblock %}
+{% block meta_description %}Browse, search, and filter saved prompts paired with generated image files in PromptVault.{% endblock %}
+{% block meta_robots %}{% if q or selected_cat or show_fav or sort != 'newest' %}noindex, follow{% else %}index, follow{% endif %}{% endblock %}
+{% block canonical_url %}{{ url_for('index', _external=True) }}{% endblock %}
 
 {% block extra_schema %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "ImageGallery",
-  "name": "PromptVault Curated Collection",
-  "description": "High-fidelity archive of generative AI images paired with their underlying prompt engineering specifications.",
+  "name": "PromptVault Gallery",
+  "description": "Archive of generated images paired with their underlying prompt parameters.",
   "numberOfItems": {{ prompts|length }}
 }
 </script>
 {% endblock %}
 
 {% block content %}
+<h1 class="sr-only">PromptVault Gallery</h1>
 
 <!-- Vault Statistics Overview -->
 <section class="metrics-banner" aria-label="Vault Statistics">
@@ -66,31 +70,34 @@
     </form>
 
     <div class="controls-row">
-        <!-- Category & Favorite Filters -->
-        <div class="filter-group" role="tablist" aria-label="Category Filters">
-            <a href="{{ url_for('index', sort=sort, q=q) }}"
-               class="filter-chip {% if not selected_cat and not show_fav %}active{% endif %}"
-               role="tab"
-               aria-selected="{{ 'true' if not selected_cat and not show_fav else 'false' }}">
-                All
-            </a>
-            <a href="{{ url_for('index', favorites='1', sort=sort, q=q) }}"
-               class="filter-chip fav-chip {% if show_fav %}active{% endif %}"
-               role="tab"
-               aria-selected="{{ 'true' if show_fav else 'false' }}">
-                <i class="fas fa-heart" aria-hidden="true"></i> Favorites
-            </a>
-            {% for cat in categories %}
-                <a href="{{ url_for('index', category=cat.category, sort=sort, q=q) }}"
-                   class="filter-chip {% if selected_cat == cat.category %}active{% endif %}"
-                   role="tab"
-                   aria-selected="{{ 'true' if selected_cat == cat.category else 'false' }}">
-                    {{ cat.category }}
-                </a>
-            {% endfor %}
-        </div>
+        <nav class="filter-group" aria-label="Category filters">
+            <ul class="filter-list">
+                <li>
+                    <a href="{{ url_for('index', sort=sort, q=q) }}"
+                       class="filter-chip {% if not selected_cat and not show_fav %}active{% endif %}"
+                       {% if not selected_cat and not show_fav %}aria-current="true"{% endif %}>
+                        All
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('index', favorites='1', sort=sort, q=q) }}"
+                       class="filter-chip fav-chip {% if show_fav %}active{% endif %}"
+                       {% if show_fav %}aria-current="true"{% endif %}>
+                        <i class="fas fa-heart" aria-hidden="true"></i> Favorites
+                    </a>
+                </li>
+                {% for cat in categories %}
+                    <li>
+                        <a href="{{ url_for('index', category=cat.category, sort=sort, q=q) }}"
+                           class="filter-chip {% if selected_cat == cat.category %}active{% endif %}"
+                           {% if selected_cat == cat.category %}aria-current="true"{% endif %}>
+                            {{ cat.category }}
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </nav>
 
-        <!-- Sorting Controls -->
         <div class="sort-group" aria-label="Sort Options">
             <a href="{{ url_for('index', sort='newest', category=selected_cat, favorites=show_fav, q=q) }}"
                class="sort-btn {% if sort == 'newest' %}active{% endif %}"
@@ -214,7 +221,7 @@
             </div>
             <div class="modal-info-col">
                 <span id="modalCategory" class="category-badge"></span>
-                <h3 id="modalTitle" class="modal-heading">Prompt Specification</h3>
+                <h2 id="modalTitle" class="modal-heading">Prompt Specification</h2>
                 <div class="modal-prompt-box">
                     <p id="modalPromptText"></p>
                 </div>
