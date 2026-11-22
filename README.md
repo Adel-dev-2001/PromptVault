@@ -1,96 +1,154 @@
 <div align="center">
   <img src="static/favicon.svg" alt="PromptVault Logo" width="88" />
   <h1>PromptVault</h1>
-  <h3>AI Prompt Library &amp; Image Asset Manager</h3>
-  <p>CS50x Final Project | Built and maintained by <a href="https://github.com/Adel-dev-2001"><strong>Adel Mohamed</strong></a></p>
+  <h3>Prompt Library &amp; Image Asset Manager</h3>
+  <p>CS50x Final Project by <a href="https://github.com/Adel-dev-2001"><strong>Adel Mohamed</strong></a></p>
   <p>
-    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.13%2B-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python" /></a>
-    <a href="https://flask.palletsprojects.com/"><img src="https://img.shields.io/badge/Flask-3.1.3-000000?style=flat-square&amp;logo=flask&amp;logoColor=white" alt="Flask" /></a>
-    <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/Database-SQLite_3-003B57?style=flat-square&amp;logo=sqlite&amp;logoColor=white" alt="SQLite" /></a>
-    <a href="https://python-pillow.org/"><img src="https://img.shields.io/badge/Imaging-Pillow_13.0-3b82f6?style=flat-square" alt="Pillow" /></a>
-    <a href="#automated-test-suite"><img src="https://img.shields.io/badge/Tests-16_Passing-2ea44f?style=flat-square" alt="Tests" /></a>
+    <a href="https://github.com/Adel-dev-2001/PromptVault/actions/workflows/ci.yml"><img src="https://github.com/Adel-dev-2001/PromptVault/actions/workflows/ci.yml/badge.svg" alt="CI Pipeline" /></a>
+    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11--3.13-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python 3.11 to 3.13" /></a>
+    <a href="https://flask.palletsprojects.com/"><img src="https://img.shields.io/badge/Flask-3.1.3-000000?style=flat-square&amp;logo=flask&amp;logoColor=white" alt="Flask 3.1.3" /></a>
+    <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/Database-SQLite_3-003B57?style=flat-square&amp;logo=sqlite&amp;logoColor=white" alt="SQLite 3" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square" alt="License: MIT" /></a>
   </p>
   <p>
-    <a href="https://adel-dev-2001.github.io/PromptVault/"><strong>Live Web App</strong></a> |
+    <a href="https://adel-dev-2001.github.io/PromptVault/"><strong>Static Browser Demo (GitHub Pages)</strong></a> |
     <a href="https://youtu.be/-prDHVKBQtc"><strong>Video Demonstration</strong></a> |
     <a href="https://github.com/Adel-dev-2001/PromptVault"><strong>Source Repository</strong></a>
   </p>
 </div>
 
+> **Static Demo vs. Flask Application:** The hosted **GitHub Pages** link opens the static browser demo ([index.html](index.html) and [static/js/demo.js](static/js/demo.js)), which stores entries inside your browser's `localStorage` with no server backend. The primary application documented below is the **Flask + SQLite server** ([app.py](app.py)), which stores uploaded images on disk under `static/uploads/`, enforces CSRF tokens, verifies image bytes with Pillow, and persists records in SQLite.
+
 ---
 
 ## Overview
 
-**PromptVault** is a full-stack web application built with Python, Flask, and SQLite for storing, categorizing, and retrieving AI-generated images alongside the exact prompts used to create them. When working with image generation models (such as Midjourney, Stable Diffusion, DALL-E, or Flux), users frequently save the output image but lose the prompt text, negative prompts, and parameter settings that produced it. PromptVault keeps the artwork and its prompt together in a searchable local library.
+**PromptVault** stores generated images alongside the exact prompt text, negative prompts, or model parameters used to produce them, organized by category.
 
-Note that PromptVault does not generate images itself. Instead, it acts as a dedicated library and asset manager for organizing images generated elsewhere together with their prompt metadata.
+### About this project
 
----
-
-## Academic & Learning Context Note
-
-> **Note for Academic Reviewers and Evaluation Committees:**
->
-> This project was developed by **Adel Mohamed** (originally created as a CS50x Final Project and further refined as part of a self-directed learning journey in software engineering, backend web development, application security, and AI workflow tooling). The primary educational goals of building PromptVault were to gain hands-on experience in:
-> - Designing server-rendered web applications using Python, Flask, and Jinja2 templates.
-> - Managing relational data in SQLite with parameterized queries and B-tree indexes.
-> - Implementing defensive file upload validation (verifying binary image headers with Pillow, enforcing payload and pixel limits, and preventing path traversal vulnerabilities).
-> - Applying web security best practices, including CSRF protection, strict HTTP security headers (CSP, Nosniff, X-Frame-Options), and automated unit testing with Python's `unittest` framework.
->
-> Because this application was built as an educational project while actively learning and experimenting with these technologies, certain architectural patterns or edge cases may still have room for further refinement and optimization. Constructive feedback and academic review are always welcome as part of this ongoing learning process.
+PromptVault was built by **Adel Mohamed** as a CS50x Final Project. It provides a single-user local web interface for cataloging existing images and prompt text in SQLite, searching entries, and downloading archived files. It intentionally does not generate images, call external AI APIs, or manage multi-user accounts.
 
 ---
 
-## Key Features
+## Features
 
-### 1. Gallery, Live Search & Filtering
-- **Real-Time Search (`/q`):** Search across saved prompt text and category names directly from the main gallery toolbar, with a global `/` keyboard shortcut to focus the search input.
-- **Category & Favorites Filtering:** Filter the library by dynamically generated category chips or view only favorited prompts.
-- **Chronological Sorting:** Sort entries by newest or oldest while preserving active search queries, category filters, and favorite views.
-- **Vault Metrics Banner:** Displays live counters for total prompts stored, active categories, and favorited entries.
-
-### 2. Prompt Inspection & Clipboard Workflow
-- **One-Click Prompt Copy:** Copy any prompt directly to the system clipboard from the gallery card or detail modal, accompanied by a non-intrusive toast notification.
-- **High-Resolution Detail Modal:** Open a fullscreen lightbox view for any entry to inspect the full-resolution image, complete prompt text, character count, creation date, and direct download link (`Esc` key supported).
-
-### 3. Upload Pipeline & File Organization
-- **Interactive Drag-and-Drop Upload (`/add`):** Supports both file browsing and drag-and-drop image selection with instant client-side image preview, live character counting, and quick-fill category suggestion tags.
-- **Category-Based Directory Sync:** Uploaded images are stored under `static/uploads/<Category>/`. If a duplicate filename exists in the same category, an incremental suffix (for example, `artwork_1.png`) is appended automatically so existing files are never overwritten.
-- **Automatic File Relocation on Edit (`/edit/<id>`):** Updating an entry's category automatically moves the image file on disk to the new category directory, updates the database path, and removes the old directory if it becomes empty.
-- **Clean Deletion (`/delete/<id>`):** Deleting an entry removes both the database record and the underlying image file from disk, pruning the category folder if no other files remain.
-
----
-
-## Security & SEO Implementation
-
-### Security Measures
-- **CSRF Protection:** All state-changing `POST` routes (`/add`, `/edit/<id>`, `/delete/<id>`, `/favorite/<id>`) require valid CSRF tokens managed by `Flask-WTF`. Missing or invalid tokens return `HTTP 400`.
-- **Deep Image Verification:** Uploaded files are checked against an explicit extension whitelist (`png`, `jpg`, `jpeg`, `gif`, `webp`), sanitized via Werkzeug's `secure_filename`, and opened with `PIL.Image` to verify that the actual binary image format matches the file extension.
-- **Decompression Bomb & Payload Limits:** Complete HTTP requests are capped at `10 MB` (`MAX_CONTENT_LENGTH`), and image dimensions are restricted to a maximum of `20,000,000` pixels (`MAX_IMAGE_PIXELS`).
-- **Path Traversal Prevention:** Category names are validated with a strict regular expression (`^[\w \-]{1,30}$`). File resolution in `upload_path_from_url()` and `/download/<path:filename>` verifies canonical containment via `os.path.commonpath` so files outside `static/uploads/` can never be read, moved, or deleted.
-- **Parameterized SQL Queries:** All user-supplied values are bound via parameterized SQL placeholders (`?`), preventing SQL injection across search, filter, insert, and update operations.
-- **HTTP Security Headers:** Every response includes `Content-Security-Policy` (CSP), `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy` (disabling camera, microphone, geolocation, and payment APIs).
-
-### SEO & Structured Data
-- **Metadata & Social Cards:** Configured in `templates/layout.html` with canonical URLs, meta descriptions, keywords, Open Graph (`og:*`) tags, and Twitter Card metadata.
-- **Schema.org JSON-LD:** Embeds structured data graphs for `WebApplication` (site-wide) and `ImageGallery` (on the main gallery view).
-- **Search Engine Endpoints:** Provides dynamic `/robots.txt` and `/sitemap.xml` routes, plus a Web App Manifest (`static/manifest.json`) and custom vector icon (`static/favicon.svg`).
-- **Semantic HTML & Accessibility:** Uses semantic HTML5 landmarks (`<header>`, `<nav>`, `<main>`, `<article>`, `<footer>`), dynamic `alt` attributes derived from prompt text, ARIA labels on icon buttons, and a keyboard skip-to-content link.
+- **Gallery Search and Filtering (`GET /`):**
+  - Search prompt text and categories via form submission (`?q=`), escaping SQL `LIKE` wildcard characters (`%`, `_`, `\`) with `ESCAPE`. Press `/` to focus the search box.
+  - Filter by category links (`?category=`) or favorites (`?favorites=1`), and toggle chronological sort order (`?sort=newest` or `?sort=oldest`).
+  - Summary counters (`Total Prompts`, `Categories`, `Favorites`) computed with SQL `COUNT(*)` and `SUM`.
+- **Detail Modal and Clipboard Copy (`static/js/gallery.js`, `static/js/main.js`):**
+  - Modal lightbox displaying full-resolution image, complete prompt text, character count, creation date, download button, and clipboard copy (`Esc` closes the modal).
+  - Prompt text is passed inside `<script type="application/json">` rather than inline `onclick` attributes.
+- **Upload Validation and Storage (`GET, POST /add`):**
+  - Drag-and-drop or file picker preview (`static/js/form.js`) with a live character counter.
+  - Validates extension (`png`, `jpg`, `jpeg`, `gif`, `webp`), binary image format via Pillow, per-frame pixel count up to `20,000,000` pixels (including animated GIF/WebP frames), and request size up to `10 MB`.
+  - Saves files under `static/uploads/<Category>/` using `secure_filename`, appends `_1`, `_2`, ... on filename collisions, and deletes the saved file if the SQLite `INSERT` fails.
+- **Edit and Delete (`GET, POST /edit/<id>`, `POST /delete/<id>`, `POST /favorite/<id>`):**
+  - Editing a category moves the file to the new category directory and removes empty old folders. If the image file is missing on disk, changing the category is refused with HTTP `400`.
+  - Deleting an entry removes its database row and image file, then removes the category directory if empty.
+  - Toggling favorites redirects only to same-origin referrers (`urlsplit` check).
+- **SEO and Accessibility Metadata:**
+  - Per-page `<title>`, meta description, robots rules (`noindex, follow` on filtered gallery views, `/add`, and `/edit`), canonical URLs, `WebApplication`/`ImageGallery` JSON-LD, `/robots.txt`, `/sitemap.xml` (`/` and `/about`), PNG Open Graph card and icons generated by `scripts/make_social_card.py`, keyboard focus outlines, `<nav>` filter lists with `aria-current`, and `prefers-reduced-motion` CSS rules.
 
 ---
 
-## Technology Stack
+## Quick Start
 
-| Layer | Technology |
-| :--- | :--- |
-| **Backend Framework** | Python 3.13+ & Flask 3.1.3 |
-| **Database** | SQLite 3 (via CS50 SQL & `sqlite3` with B-tree indexes) |
-| **Security & Forms** | Flask-WTF 1.3.0 (CSRF Protection) & Werkzeug 3.1.9 |
-| **Image Verification** | Pillow (PIL) 13.0.0 |
-| **Frontend Templates** | Jinja2, Semantic HTML5, Vanilla JavaScript |
-| **Styling** | Custom CSS3 (Dark Glassmorphism, CSS Variables, Responsive Grid) |
-| **Production WSGI** | Gunicorn (Linux/Docker) / Waitress (Windows) |
+### Prerequisites
+
+- **Python 3.11 - 3.13** (supported and tested in CI; the container image uses `python:3.13-slim`).
+- `pip`.
+
+### Setup and Local Run (Development)
+
+```bash
+git clone https://github.com/Adel-dev-2001/PromptVault.git
+cd PromptVault
+python -m venv .venv
+```
+
+Activate the virtual environment:
+
+- **Windows (PowerShell):** `.\.venv\Scripts\Activate.ps1`
+- **macOS / Linux:** `source .venv/bin/activate`
+
+Install dependencies and start the server:
+
+```bash
+pip install -r requirements.txt
+python app.py
+```
+
+Open `http://127.0.0.1:5000`. In development mode (`APP_ENV` unset or `development`), if `SECRET_KEY` is missing or matches a placeholder, the application generates a temporary key and logs one warning at startup.
+
+### Running in Production Mode
+
+When `APP_ENV=production`, startup fails unless `SECRET_KEY` is set to a non-placeholder string of at least 32 characters:
+
+```bash
+export APP_ENV=production
+export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+gunicorn --workers 4 --bind 127.0.0.1:5000 wsgi:app
+```
+
+> **Note:** `gunicorn==27.0.1` is pinned in `requirements.txt` for POSIX/Linux deployments. On Windows, `gunicorn` does not run its worker loop natively; install an external Windows WSGI server such as `waitress` separately if needed.
+
+---
+
+## Configuration
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `APP_ENV` | `development` | Set to `production` to enable mandatory `SECRET_KEY` validation and `SESSION_COOKIE_SECURE`. |
+| `SECRET_KEY` | Temporary random key in dev | Signs Flask sessions and CSRF tokens. Must be at least 32 chars and non-placeholder in production. |
+| `DATABASE_PATH` | `<app_root>/prompts.db` | SQLite database file path. Parent directories are created automatically. |
+| `APP_PASSWORD` | Empty (disabled) | When set to a non-empty string, `POST` routes require HTTP Basic authentication (`hmac.compare_digest`). |
+| `HOST` | `127.0.0.1` | Bind address for `python app.py`. |
+| `PORT` | `5000` | Listen port for `python app.py`. |
+| `FLASK_DEBUG` | `0` | Enables Flask debug reloader and debugger when set to `1`. |
+| `TRUST_PROXY` | `0` | Enables Werkzeug `ProxyFix` (`x_for=1`, `x_proto=1`, `x_host=1`, `x_prefix=1`) when set to `1` behind a reverse proxy. |
+
+See [.env.example](.env.example) for a template.
+
+---
+
+## Running Tests and Lint Checks
+
+Run the automated `unittest` suite (creates isolated temporary workspaces, leaves no repository artifacts):
+
+```bash
+python -m unittest -v test_app.py
+```
+
+Run linting and formatting checks with Ruff (requires `ruff` installed):
+
+```bash
+ruff check .
+ruff format --check .
+```
+
+Regenerate PNG social card and icon assets if needed:
+
+```bash
+python scripts/make_social_card.py
+```
+
+---
+
+## Docker
+
+The repository provides a single-stage `Dockerfile` based on `python:3.13-slim`, `.dockerignore`, and `docker-compose.yml`:
+
+- Runs as non-root user `appuser` owning `/app/data` and `/app/static/uploads`.
+- Uses a Python `urllib.request` `HEALTHCHECK` against `http://127.0.0.1:5000/` (without `curl`).
+- Sets `APP_ENV=production` inside the container, so `SECRET_KEY` must be passed at runtime.
+- `docker-compose.yml` binds `127.0.0.1:5000:5000` only and requires `SECRET_KEY` from the host environment.
+
+```bash
+export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+docker compose up -d --build
+```
 
 ---
 
@@ -98,147 +156,103 @@ Note that PromptVault does not generate images itself. Instead, it acts as a ded
 
 ```text
 PromptVault/
+├── .dockerignore                  # Excludes local DBs, .env, .git, uploads, caches from Docker context
+├── .editorconfig                  # UTF-8, LF, trailing newline, 4-space Python / 2-space web rules
+├── .env.example                   # Environment variable template
+├── .gitattributes                 # Forces LF line endings on text files and marks binary image formats
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                  # GitHub Actions CI pipeline running the 16 unit tests
+│       └── ci.yml                 # Lint (ruff), unit tests (3.11-3.13, Linux/Windows), Docker smoke build
+├── .gitignore                     # Ignores venvs, DB files, .env, caches, and uploaded images
+├── .nojekyll                      # Serves static GitHub Pages files without Jekyll processing
+├── 404.html                       # Static fallback 404 page for GitHub Pages
+├── Dockerfile                     # Single-stage python:3.13-slim non-root container image
+├── LICENSE                        # MIT License
+├── Procfile                       # Process command (gunicorn wsgi:app)
+├── README.md                      # Project documentation
+├── app.py                         # Flask routes, SQL queries, validation, headers, SEO endpoints
+├── docker-compose.yml             # Localhost-bound Compose service with persistent volumes
+├── index.html                     # Static browser demo page for GitHub Pages
+├── pyproject.toml                 # Ruff configuration (line-length = 100)
+├── requirements.txt               # Pinned Python dependencies including gunicorn
+├── robots.txt                     # Static robots directives for GitHub Pages demo
+├── scripts/
+│   └── make_social_card.py        # Pillow generator for og-card.png and PNG app icons
+├── sitemap.xml                    # Static sitemap for GitHub Pages demo
 ├── static/
-│   ├── favicon.svg                 # Custom SVG vault icon matching the header logo
-│   ├── manifest.json               # Web App Manifest for PWA & mobile metadata
-│   ├── styles.css                  # Main stylesheet (dark glassmorphism & responsive layout)
+│   ├── apple-touch-icon.png       # 180x180 PNG icon for iOS home screen
+│   ├── favicon.svg                # Vector site icon
+│   ├── icon-192.png               # 192x192 PNG manifest icon
+│   ├── icon-512.png               # 512x512 PNG manifest icon
+│   ├── icon-maskable-512.png      # 512x512 maskable icon with safe-zone margin
+│   ├── js/
+│   │   ├── demo.js                # Client-side localStorage demo script for root index.html
+│   │   ├── form.js                # Add/Edit character counter, tag pills, drag-and-drop preview
+│   │   ├── gallery.js             # JSON dataset loader, clipboard delegation, and detail modal
+│   │   └── main.js                # Async stylesheet loader, toast/copy utilities, hotkeys, delete confirm
+│   ├── manifest.json              # Web app manifest
+│   ├── og-card.png                # 1200x630 Open Graph / Twitter preview card
+│   ├── styles.css                 # Application styles
 │   └── uploads/
-│       └── .gitkeep                # Preserves the uploads directory in Git
+│       └── .gitkeep               # Keeps uploads directory tracked while uploads are ignored
 ├── templates/
-│   ├── errors/                     # Custom HTTP error pages (400, 403, 404, 413, 500)
-│   ├── about.html                  # Project overview, security specs, and academic note
-│   ├── add.html                    # Upload form with drag-and-drop preview & tag pills
-│   ├── edit.html                   # Edit prompt text and category form
-│   ├── index.html                  # Main gallery, search bar, filters, and detail modal
-│   └── layout.html                 # Base template (SEO meta tags, JSON-LD, nav, footer)
-├── .env.example                    # Example environment variable configuration
-├── .gitignore                      # Excludes .venv, __pycache__, *.db, and uploaded images
-├── .nojekyll                       # Disables Jekyll processing for GitHub Pages deployment
-├── 404.html                        # Static 404 fallback page for GitHub Pages
-├── app.py                          # Main Flask application, routes, validation, and headers
-├── Dockerfile                      # Production container definition
-├── docker-compose.yml              # Docker Compose service and persistent volume config
-├── index.html                      # Interactive client-side web app for GitHub Pages live demo
-├── LICENSE                         # MIT License
-├── Procfile                        # Process definition for cloud platforms (Render/Heroku)
-├── README.md                       # Project documentation
-├── requirements.txt                # Pinned Python dependencies
-├── robots.txt                      # Static crawler directives for GitHub Pages
-├── sitemap.xml                     # Static XML sitemap for GitHub Pages
-├── test_app.py                     # Automated unit test suite (16 test cases)
-└── wsgi.py                         # WSGI entry point for production servers
+│   ├── about.html                 # Application overview and security model page
+│   ├── add.html                   # Upload form
+│   ├── edit.html                  # Prompt/category edit form
+│   ├── errors/
+│   │   ├── 400.html
+│   │   ├── 403.html
+│   │   ├── 404.html
+│   │   ├── 413.html
+│   │   └── 500.html
+│   ├── index.html                 # Gallery template
+│   └── layout.html                # Base layout template
+├── test_app.py                    # Unit test suite
+└── wsgi.py                        # WSGI entry point
 ```
 
 ---
 
-## Getting Started Locally
+## Design Decisions
 
-### Prerequisites
-- **Python** (3.10 or newer; tested through Python 3.15)
-- **pip** (Python package installer)
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/Adel-dev-2001/PromptVault.git
-cd PromptVault
-```
-
-### 2. Create and Activate a Virtual Environment
-
-**Windows (PowerShell):**
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
-
-**macOS / Linux:**
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configure Environment Variables (Optional)
-Copy `.env.example` to `.env` if you want to set a persistent `SECRET_KEY` or custom port:
-```bash
-cp .env.example .env
-```
-If `SECRET_KEY` is not set, the app generates a random 32-byte key on startup.
-
-### 5. Run the Automated Test Suite
-```bash
-python -m unittest -v test_app.py
-```
-
-### 6. Start the Application
-```bash
-python app.py
-```
-Open `http://127.0.0.1:5000` in your browser. The SQLite database (`prompts.db`) and `images` table are created automatically on first run.
+- **Why Flask + `cs50.SQL`:** PromptVault has a small set of server-rendered forms and gallery filters stored in a single SQLite table (`images`). Flask templates handle server-side HTML autoescaping without a separate build pipeline, while `cs50.SQL` provides concise parameterized queries consistent with the project's CS50x origin.
+- **Why files are stored per category (`static/uploads/<Category>/`):** Grouping images into category subdirectories lets users back up, browse, or clean up images directly on disk by folder name, at the cost of validating category characters (`[\w \-]{1,30}`), resolving URL paths via `os.path.commonpath`, and moving files when a category changes.
+- **Why the static demo is a separate root `index.html`:** GitHub Pages serves only static assets and cannot execute Python, Flask, or SQLite. Keeping the client-side `localStorage` version in `index.html` and `static/js/demo.js` provides a zero-install browser preview without adding client-side storage workarounds to the Flask templates.
 
 ---
 
-## Production Deployment
+## Security Model
 
-PromptVault includes `wsgi.py`, `Procfile`, `Dockerfile`, and `docker-compose.yml` for running in production environments:
+PromptVault is designed as a **single-user local tool** by default.
 
-### Option 1: Gunicorn (Linux / macOS)
-```bash
-pip install gunicorn
-gunicorn --workers 4 --bind 0.0.0.0:5000 wsgi:app
-```
+### What is protected
 
-### Option 2: Waitress (Windows)
-```powershell
-pip install waitress
-waitress-serve --port=5000 wsgi:app
-```
+- **CSRF:** `POST` endpoints (`/add`, `/edit/<id>`, `/favorite/<id>`, `/delete/<id>`) require valid `Flask-WTF` CSRF tokens.
+- **Upload validation:** Checks extension whitelist, sanitizes filenames with Werkzeug `secure_filename`, verifies binary image headers and per-frame pixel count (`<= 20,000,000` pixels per frame) with Pillow, and limits HTTP request size to `10 MB`.
+- **Path containment:** Category names only permit 1-30 Unicode word characters, spaces, `-`, and `_`. `upload_path_from_url()` and `/download/<path:filename>` reject null bytes, backslashes, and `..` segments, and check `os.path.commonpath` against `UPLOAD_FOLDER`.
+- **Query and template safety:** SQL values are passed as bound parameters (`?`), `LIKE` search escapes `%`, `_`, and `\`, Jinja autoescaping prevents attribute/HTML injection, and `script-src 'self'` / `style-src 'self' ...` exclude `'unsafe-inline'`.
+- **Headers and redirects:** Responses set `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Permissions-Policy`, and `Strict-Transport-Security` over HTTPS (with `ProxyFix` when `TRUST_PROXY=1`). `/favorite/<id>` only redirects to same-origin referrers.
+- **Optional write protection:** Setting `APP_PASSWORD` enforces HTTP Basic authentication (compared with `hmac.compare_digest`) on all state-changing (`POST`) routes.
 
-### Option 3: Docker Compose
-```bash
-docker compose up -d --build
-```
+### What is not protected
 
----
+- **No user accounts or role permissions:** There is no login system, session user isolation, or read protection; `GET /` and image files remain accessible even when `APP_PASSWORD` is set.
+- **No rate limiting:** Requests and password checks are not throttled.
+- **No content/malware inspection beyond Pillow decoding:** Valid image files that decode cleanly in Pillow are stored as uploaded.
 
-## Automated Test Suite
-
-The `test_app.py` suite runs 16 isolated unit tests in a temporary workspace to verify all routes and security boundaries:
-
-1. `test_gallery_and_headers`: Checks `GET /` status (`200 OK`) and `X-Content-Type-Options: nosniff`.
-2. `test_security_headers_and_csp`: Verifies `Content-Security-Policy`, `X-Frame-Options`, and `Permissions-Policy` headers.
-3. `test_missing_csrf_is_rejected`: Ensures `POST` requests to `/add`, `/edit/1`, `/delete/1`, and `/favorite/1` without a CSRF token return `HTTP 400`.
-4. `test_valid_image_upload_and_download`: Verifies uploading a valid PNG image, storing its database record, and downloading the file from `/download/<path>`.
-5. `test_fake_image_rejected`: Confirms non-image binary data with a `.png` extension is rejected with `HTTP 400`.
-6. `test_mismatched_extension_rejected`: Confirms a PNG file renamed to `.jpg` is rejected when Pillow inspects the header.
-7. `test_invalid_category_rejected`: Verifies path traversal strings (`../outside`) and control characters in category names are rejected.
-8. `test_search_filtering`: Tests live search queries (`/?q=...`) for both matching and non-matching terms.
-9. `test_favorite_filter_survives_sort`: Ensures favorite filtering (`favorites=1`) persists across sort order toggles (`sort=oldest`).
-10. `test_edit_and_delete`: Tests updating prompt text and category, followed by deleting the entry and verifying file removal on disk.
-11. `test_edit_category_moves_image_file`: Confirms changing an entry's category moves the image file to the new category folder and cleans up the old folder.
-12. `test_request_size_limit`: Verifies requests exceeding `MAX_CONTENT_LENGTH` return `HTTP 413`.
-13. `test_download_traversal_rejected`: Confirms `/download/../prompts.db` is blocked with `HTTP 404`.
-14. `test_robots_and_sitemap`: Validates `/robots.txt` (`text/plain`) and `/sitemap.xml` (`application/xml`).
-15. `test_schema_json_ld_present`: Checks that `WebApplication` and `ImageGallery` JSON-LD schemas render in the HTML output.
-16. `test_custom_404_template`: Verifies unknown routes return `HTTP 404` using the custom error template.
+> Do not expose this application directly to the internet without `APP_PASSWORD` set and a TLS-terminating reverse proxy in front of it (with `TRUST_PROXY=1`).
 
 ---
 
-## Author
+## Known Limitations
 
-- **Adel Mohamed**
-- **GitHub:** [@Adel-dev-2001](https://github.com/Adel-dev-2001)
-- **Repository:** [github.com/Adel-dev-2001/PromptVault](https://github.com/Adel-dev-2001/PromptVault)
+- **Single-writer SQLite:** Running multiple Gunicorn workers (`--workers=4`) against SQLite relies on SQLite's file locking and is intended for personal/light usage rather than high concurrent write traffic.
+- **Animated frame limits are per frame:** Animated GIF and WebP uploads enforce the `20,000,000` pixel ceiling on each individual frame within the `10 MB` file size limit rather than summing pixel counts across all frames.
+- **Static demo persistence:** Entries added on the GitHub Pages static demo exist only in that browser's `localStorage` and cannot use server-side Pillow byte verification.
 
 ---
 
-## License
+## Author &amp; License
 
-This project is licensed under the [MIT License](LICENSE).
+- **Author:** Adel Mohamed ([GitHub](https://github.com/Adel-dev-2001))
+- **License:** [MIT License](LICENSE)

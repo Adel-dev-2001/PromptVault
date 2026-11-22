@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block title %}About | PromptVault{% endblock %}
-{% block meta_description %}Overview of PromptVault features, security controls, stack, and project scope.{% endblock %}
+{% block meta_description %}Overview of PromptVault features, configuration, design decisions, and security model.{% endblock %}
 
 {% block content %}
 <div class="form-page">
@@ -9,77 +9,72 @@
         <div class="form-header">
             <div class="form-icon"><i class="fas fa-vault" aria-hidden="true"></i></div>
             <h1>About PromptVault</h1>
-            <p>AI Prompt Library &amp; Image Asset Manager</p>
+            <p>Prompt Library &amp; Image Asset Manager</p>
         </div>
 
         <div class="about-body">
             <section class="about-section">
-                <h2><i class="fas fa-bullseye" aria-hidden="true"></i> Project Overview</h2>
+                <h2><i class="fas fa-bullseye" aria-hidden="true"></i> About this project</h2>
                 <p>
-                    <strong>PromptVault</strong> solves a common problem in generative AI workflows:
-                    while image generation models produce detailed visual artwork, the exact prompts,
-                    negative prompts, and parameters used to create them are easily lost over time.
+                    <strong>PromptVault</strong> was created by <strong>Adel Mohamed</strong> as a CS50x Final Project.
+                    It stores image files alongside the exact prompt text, negative prompts, and settings used to generate them,
+                    organized into categories with search, favorites filtering, and clipboard copy.
                 </p>
                 <p>
-                    PromptVault provides a clean, local web library for uploading AI-generated images,
-                    saving the exact prompts behind them, and organizing everything by category.
+                    PromptVault intentionally does not generate images, call external model APIs, or provide multi-user accounts.
                 </p>
             </section>
 
             <section class="about-section">
-                <h2><i class="fas fa-layer-group" aria-hidden="true"></i> Core Capabilities</h2>
+                <h2><i class="fas fa-layer-group" aria-hidden="true"></i> Implemented Features</h2>
                 <div class="about-features">
                     <div class="feature-item">
                         <i class="fas fa-search" aria-hidden="true"></i>
-                        <span>Live search across prompts and categories</span>
+                        <span>Form search via ?q= across prompts and categories</span>
                     </div>
                     <div class="feature-item">
                         <i class="fas fa-shield-alt" aria-hidden="true"></i>
-                        <span>Strict image validation &amp; CSRF protection</span>
+                        <span>CSRF tokens and Pillow image verification</span>
                     </div>
                     <div class="feature-item">
                         <i class="fas fa-copy" aria-hidden="true"></i>
-                        <span>One-click clipboard prompt copy</span>
+                        <span>Clipboard copy from gallery cards and modal view</span>
                     </div>
                     <div class="feature-item">
                         <i class="fas fa-sitemap" aria-hidden="true"></i>
-                        <span>Schema.org JSON-LD &amp; XML sitemap</span>
+                        <span>JSON-LD metadata, robots.txt, and XML sitemap</span>
                     </div>
                 </div>
             </section>
 
             <section class="about-section">
-                <h2><i class="fas fa-lock" aria-hidden="true"></i> Security Architecture</h2>
+                <h2><i class="fas fa-lock" aria-hidden="true"></i> Security Model</h2>
                 <ul class="specs-list">
-                    <li><strong>CSRF Protection:</strong> All state-changing endpoints require signed CSRF tokens via Flask-WTF.</li>
-                    <li><strong>Deep Image Verification:</strong> Uploaded files are sanitized with Werkzeug and inspected with Pillow to confirm the binary header matches the file extension.</li>
-                    <li><strong>Upload &amp; Pixel Limits:</strong> Requests are capped at 10 MB and image dimensions are limited to 20 megapixels to prevent decompression bombs.</li>
-                    <li><strong>Path Traversal Protection:</strong> File storage and download routes verify canonical paths to ensure files remain strictly inside the uploads directory.</li>
-                    <li><strong>HTTP Security Headers:</strong> Enforces Content-Security-Policy (CSP), X-Content-Type-Options (nosniff), X-Frame-Options (SAMEORIGIN), and strict Referrer-Policy.</li>
+                    <li><strong>Single-user default:</strong> PromptVault runs locally without user accounts; setting <code>APP_PASSWORD</code> enables HTTP Basic auth on state-changing <code>POST</code> requests.</li>
+                    <li><strong>CSRF protection:</strong> All mutating endpoints check signed <code>Flask-WTF</code> CSRF tokens.</li>
+                    <li><strong>Upload bounds:</strong> Requests are capped at 10 MB; Pillow verifies image format against extension and checks every frame against a 20-megapixel ceiling.</li>
+                    <li><strong>Path checks:</strong> Category names match Unicode letters, digits, spaces, <code>-</code>, and <code>_</code> (1-30 chars), and file access checks <code>os.path.commonpath</code> inside <code>static/uploads/</code>.</li>
+                    <li><strong>CSP and headers:</strong> Sends <code>Content-Security-Policy</code> with <code>script-src 'self'</code>, <code>X-Content-Type-Options: nosniff</code>, <code>X-Frame-Options: SAMEORIGIN</code>, and HSTS over HTTPS.</li>
                 </ul>
             </section>
 
             <section class="about-section">
-                <h2><i class="fas fa-laptop-code" aria-hidden="true"></i> Technology Stack</h2>
+                <h2><i class="fas fa-laptop-code" aria-hidden="true"></i> Stack</h2>
                 <div class="tech-stack">
-                    <span class="tech-badge">Python 3.13+</span>
-                    <span class="tech-badge">Flask 3.x</span>
+                    <span class="tech-badge">Python 3.11-3.13</span>
+                    <span class="tech-badge">Flask 3.1.3</span>
                     <span class="tech-badge">SQLite 3</span>
-                    <span class="tech-badge">Pillow (PIL)</span>
-                    <span class="tech-badge">Flask-WTF</span>
+                    <span class="tech-badge">Pillow 13.0</span>
+                    <span class="tech-badge">Flask-WTF 1.3</span>
                     <span class="tech-badge">Jinja2</span>
                     <span class="tech-badge">HTML5 / CSS3</span>
-                    <span class="tech-badge">Schema.org JSON-LD</span>
                 </div>
             </section>
 
             <section class="about-section academic-note-box">
-                <h2><i class="fas fa-graduation-cap" aria-hidden="true"></i> Academic &amp; Learning Context</h2>
-                <p>
-                    This application was developed by <strong>Adel Mohamed</strong> as a CS50x Final Project and part of a self-directed learning journey in software engineering, full-stack web development, and application security.
-                </p>
+                <h2><i class="fas fa-circle-info" aria-hidden="true"></i> Known Limitations</h2>
                 <p class="academic-text">
-                    Because this project was built for educational purposes while actively learning and experimenting with these technologies, certain architectural patterns or edge cases may still have room for further refinement. Constructive feedback and academic review are always welcome.
+                    Do not expose this server directly to the public internet without <code>APP_PASSWORD</code> and a TLS reverse proxy (<code>TRUST_PROXY=1</code>). No rate limiting or per-user authorization is built in, and GET routes remain readable when served.
                 </p>
             </section>
         </div>
