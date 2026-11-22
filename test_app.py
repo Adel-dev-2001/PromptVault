@@ -590,6 +590,24 @@ class PromptVaultTests(unittest.TestCase):
             with Image.open(static_dir / icon_name) as icon_img:
                 self.assertEqual(icon_img.size, expected_size)
 
+    def test_static_demo_assets_hardened(self):
+        repo_dir = Path(__file__).resolve().parent
+        demo_html = (repo_dir / "index.html").read_text(encoding="utf-8")
+        demo_js = (repo_dir / "static" / "js" / "demo.js").read_text(encoding="utf-8")
+        err_html = (repo_dir / "404.html").read_text(encoding="utf-8")
+
+        self.assertIn("<title>Gallery Demo | PromptVault</title>", demo_html)
+        self.assertNotIn('<meta name="keywords"', demo_html)
+        self.assertEqual(len(re.findall(r"<h1\b", demo_html)), 1)
+        self.assertIn("<noscript>", demo_html)
+        self.assertNotIn("onclick=", demo_html)
+        self.assertIn("og-card.png", demo_html)
+        self.assertIn("isSafeImageDataUrl", demo_js)
+        self.assertIn("&quot;", demo_js)
+        self.assertIn("&#39;", demo_js)
+        self.assertEqual(err_html.count("styles.css"), 1)
+        self.assertIn("<title>Page Not Found (404) | PromptVault</title>", err_html)
+
     def test_schema_json_ld_present(self):
         res = self.client.get("/")
         self.assertEqual(res.status_code, 200)
