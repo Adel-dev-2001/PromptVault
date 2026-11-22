@@ -1,7 +1,9 @@
 """PromptVault: Flask application for storing AI-generated images and their prompts."""
 
+import hmac
 import os
 import re
+import secrets
 import sqlite3
 from urllib.parse import quote_plus, unquote, urlsplit
 
@@ -40,10 +42,34 @@ EXPECTED_IMAGE_FORMATS = {
 MAX_IMAGE_PIXELS = 20_000_000
 MAX_CONTENT_LENGTH = 10 * 1024 * 1024
 CATEGORY_PATTERN = re.compile(r"\A[\w \-]{1,30}\Z")
+KNOWN_PLACEHOLDER_SECRETS = {
+    "change-this-to-a-secure-random-32-byte-hex-string",
+    "replace_with_a_secure_production_secret_key_32_bytes",
+    "replace-with-a-random-64-char-hex-key",
+    "changeme",
+    "secret",
+}
+
+
+def resolve_secret_key(logger, is_production: bool) -> str:
+    """Return SECRET_KEY from env, or fail in production / warn once in dev."""
+    raw = os.environ.get("SECRET_KEY", "").strip()
+    invalid = not raw or len(raw) < 32 or raw in KNOWN_PLACEHOLDER_SECRETS
+    if not invalid:
+        return raw
+    if is_production:
+        raise RuntimeError(
+            "SECRET_KEY must be set to a non-placeholder value of at least 32 chars in production."
+        )
+    logger.warning(
+        "SECRET_KEY is missing, short, or placeholder; generated a temporary development key."
+    )
+    return secrets.token_hex(32)
+
 
 app = Flask(__name__)
 IS_PRODUCTION = os.environ.get("APP_ENV", "development").strip().lower() == "production"
-app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32)
+app.secret_key = resolve_secret_key(app.logger, IS_PRODUCTION)
 
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -55,6 +81,30 @@ app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
 if os.environ.get("TRUST_PROXY") == "1":
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
+
+@app.before_request
+def require_app_password_for_mutations():
+    """Enforce HTTP Basic auth on state-changing requests when APP_PASSWORD is set."""
+    expected = app.config.get("APP_PASSWORD")
+    if expected is None:
+        expected = os.environ.get("APP_PASSWORD", "")
+    if not expected or request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return None
+
+    auth = request.authorization
+    provided = auth.password if auth and auth.type == "basic" else None
+    if provided is None or not hmac.compare_digest(
+        provided.encode("utf-8"), expected.encode("utf-8")
+    ):
+        return Response(
+            "Authentication required.",
+            401,
+            {"WWW-Authenticate": 'Basic realm="PromptVault"'},
+        )
+    return None
+
+
+# Registered after Basic auth hook so unauthenticated POSTs return 401 before CSRF checks.
 csrf = CSRFProtect(app)
 
 default_database_path = os.path.join(app.root_path, "prompts.db")

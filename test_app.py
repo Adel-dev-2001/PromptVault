@@ -1,8 +1,10 @@
+import base64
 import importlib.util
 import io
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -543,6 +545,127 @@ class PromptVaultTests(unittest.TestCase):
         res = self.client.get("/nonexistent-page-path-404")
         self.assertEqual(res.status_code, 404)
         self.assertIn("Page Not Found", res.get_data(as_text=True))
+
+    def test_production_requires_non_placeholder_secret_key(self):
+        repo_dir = Path(__file__).resolve().parent
+        invalid_keys = [
+            "",
+            "too-short-secret",
+            "change-this-to-a-secure-random-32-byte-hex-string",
+            "replace_with_a_secure_production_secret_key_32_bytes",
+            "replace-with-a-random-64-char-hex-key",
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            for idx, key in enumerate(invalid_keys):
+                with self.subTest(key=key):
+                    env = os.environ.copy()
+                    env["APP_ENV"] = "production"
+                    env["DATABASE_PATH"] = str(Path(tmp) / f"prod_{idx}.db")
+                    if key:
+                        env["SECRET_KEY"] = key
+                    else:
+                        env.pop("SECRET_KEY", None)
+                    proc = subprocess.run(
+                        [sys.executable, "-c", "import app"],
+                        cwd=str(repo_dir),
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertNotEqual(proc.returncode, 0)
+                    self.assertIn("SECRET_KEY", proc.stderr)
+
+            valid_env = os.environ.copy()
+            valid_env["APP_ENV"] = "production"
+            valid_env["DATABASE_PATH"] = str(Path(tmp) / "prod_valid.db")
+            valid_env["SECRET_KEY"] = "a" * 32 + "b" * 32
+            ok_proc = subprocess.run(
+                [sys.executable, "-c", "import app"],
+                cwd=str(repo_dir),
+                env=valid_env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(ok_proc.returncode, 0, ok_proc.stderr)
+
+    def test_dev_mode_logs_single_warning_for_missing_secret(self):
+        repo_dir = Path(__file__).resolve().parent
+        with tempfile.TemporaryDirectory() as tmp:
+            env = os.environ.copy()
+            env["APP_ENV"] = "development"
+            env["DATABASE_PATH"] = str(Path(tmp) / "dev.db")
+            env.pop("SECRET_KEY", None)
+            proc = subprocess.run(
+                [sys.executable, "-c", "import app"],
+                cwd=str(repo_dir),
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual(proc.stderr.count("SECRET_KEY is missing"), 1)
+
+    def test_app_password_protects_state_changing_routes(self):
+        token = base64.b64encode(b"user:secret-pass-42").decode("ascii")
+        wrong_token = base64.b64encode(b"user:wrong-pass").decode("ascii")
+        valid_headers = {"Authorization": f"Basic {token}"}
+        bad_headers = {"Authorization": f"Basic {wrong_token}"}
+
+        with patch.dict(self.module.app.config, {"APP_PASSWORD": "secret-pass-42"}):
+            self.assertEqual(self.client.get("/").status_code, 200)
+
+            for path in ["/add", "/edit/1", "/favorite/1", "/delete/1"]:
+                unauth = self.client.post(path, data={"csrf_token": self.csrf_token()})
+                self.assertEqual(unauth.status_code, 401)
+                self.assertIn("Basic", unauth.headers.get("WWW-Authenticate", ""))
+
+                wrong = self.client.post(
+                    path,
+                    data={"csrf_token": self.csrf_token()},
+                    headers=bad_headers,
+                )
+                self.assertEqual(wrong.status_code, 401)
+
+            stream = io.BytesIO()
+            Image.new("RGB", (4, 4), "white").save(stream, format="PNG")
+            add_res = self.client.post(
+                "/add",
+                data={
+                    "csrf_token": self.csrf_token(),
+                    "image_file": (io.BytesIO(stream.getvalue()), "protected.png"),
+                    "prompt_text": "Protected prompt",
+                    "category": "Protected",
+                },
+                content_type="multipart/form-data",
+                headers=valid_headers,
+            )
+            self.assertEqual(add_res.status_code, 302)
+            row_id = self.module.db.execute("SELECT id FROM images")[0]["id"]
+
+            fav_res = self.client.post(
+                f"/favorite/{row_id}",
+                data={"csrf_token": self.csrf_token()},
+                headers=valid_headers,
+            )
+            self.assertEqual(fav_res.status_code, 302)
+
+            edit_res = self.client.post(
+                f"/edit/{row_id}",
+                data={
+                    "csrf_token": self.csrf_token(),
+                    "prompt_text": "Updated protected",
+                    "category": "Protected",
+                },
+                headers=valid_headers,
+            )
+            self.assertEqual(edit_res.status_code, 302)
+
+            del_res = self.client.post(
+                f"/delete/{row_id}",
+                data={"csrf_token": self.csrf_token()},
+                headers=valid_headers,
+            )
+            self.assertEqual(del_res.status_code, 302)
 
 
 if __name__ == "__main__":
