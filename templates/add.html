@@ -31,7 +31,7 @@
                         <span id="fileLabel">Click to browse or drag an image here</span>
                         <small>Supported formats: PNG, JPG, JPEG, GIF, WEBP (Max 10 MB, up to 20 MP)</small>
                     </div>
-                    <img id="preview" src="" alt="Selected image preview" style="display:none;">
+                    <img id="preview" src="" alt="Selected image preview" hidden>
                 </div>
             </div>
 
@@ -62,12 +62,12 @@
                        required>
                 <div class="suggested-tags">
                     <span class="tags-label">Quick Suggestions:</span>
-                    <button type="button" class="tag-pill" onclick="setCategory('Portrait')">Portrait</button>
-                    <button type="button" class="tag-pill" onclick="setCategory('Cyberpunk')">Cyberpunk</button>
-                    <button type="button" class="tag-pill" onclick="setCategory('Landscape')">Landscape</button>
-                    <button type="button" class="tag-pill" onclick="setCategory('Concept Art')">Concept Art</button>
-                    <button type="button" class="tag-pill" onclick="setCategory('Architecture')">Architecture</button>
-                    <button type="button" class="tag-pill" onclick="setCategory('Sci-Fi')">Sci-Fi</button>
+                    <button type="button" class="tag-pill" data-category="Portrait">Portrait</button>
+                    <button type="button" class="tag-pill" data-category="Cyberpunk">Cyberpunk</button>
+                    <button type="button" class="tag-pill" data-category="Landscape">Landscape</button>
+                    <button type="button" class="tag-pill" data-category="Concept Art">Concept Art</button>
+                    <button type="button" class="tag-pill" data-category="Architecture">Architecture</button>
+                    <button type="button" class="tag-pill" data-category="Sci-Fi">Sci-Fi</button>
                 </div>
             </div>
 
@@ -80,68 +80,8 @@
         </form>
     </div>
 </div>
+{% endblock %}
 
-<script>
-    const input = document.getElementById('image_file');
-    const preview = document.getElementById('preview');
-    const fileLabel = document.getElementById('fileLabel');
-    const dropArea = document.getElementById('dropArea');
-    const promptText = document.getElementById('prompt_text');
-    const charCounter = document.getElementById('charCounter');
-
-    // Live character counter
-    promptText.addEventListener('input', function() {
-        charCounter.textContent = this.value.length + ' chars';
-    });
-
-    // Quick tag selector
-    function setCategory(name) {
-        document.getElementById('category').value = name;
-    }
-
-    // Image preview on select
-    function handleFile(file) {
-        if (file && file.type.startsWith('image/')) {
-            fileLabel.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
-            const reader = new FileReader();
-            reader.onload = e => {
-                preview.src = e.target.result;
-                preview.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-
-    input.addEventListener('change', function () {
-        if (this.files.length) {
-            handleFile(this.files[0]);
-        }
-    });
-
-    // Drag-and-drop visuals
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropArea.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropArea.classList.add('dragover');
-        }, false);
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropArea.classList.remove('dragover');
-        }, false);
-    });
-
-    dropArea.addEventListener('drop', (e) => {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        if (files.length) {
-            input.files = files;
-            handleFile(files[0]);
-        }
-    });
-</script>
+{% block extra_scripts %}
+<script src="/static/js/form.js" defer></script>
 {% endblock %}

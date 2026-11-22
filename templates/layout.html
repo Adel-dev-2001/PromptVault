@@ -109,62 +109,7 @@
         </div>
     </footer>
 
-    <!-- Global Interactive Utilities -->
-    <script>
-        function showToast(message) {
-            const toast = document.getElementById('toastNotification');
-            if (!toast) return;
-            toast.textContent = message;
-            toast.classList.add('visible');
-            setTimeout(() => {
-                toast.classList.remove('visible');
-            }, 2500);
-        }
-
-        function copyPrompt(text, btn) {
-            if (!navigator.clipboard) {
-                // Fallback for non-secure contexts
-                const tempArea = document.createElement('textarea');
-                tempArea.value = text;
-                document.body.appendChild(tempArea);
-                tempArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(tempArea);
-                showToast('Prompt copied to clipboard!');
-                return;
-            }
-            navigator.clipboard.writeText(text).then(() => {
-                showToast('Prompt copied to clipboard!');
-                if (btn) {
-                    const originalHTML = btn.innerHTML;
-                    btn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i>';
-                    btn.classList.add('copied');
-                    setTimeout(() => {
-                        btn.innerHTML = originalHTML;
-                        btn.classList.remove('copied');
-                    }, 1800);
-                }
-            }).catch(err => {
-                showToast('Unable to copy prompt.');
-            });
-        }
-
-        // Global hotkey: Press '/' to focus search input
-        document.addEventListener('keydown', (e) => {
-            if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-                const searchInput = document.getElementById('searchInput');
-                if (searchInput) {
-                    e.preventDefault();
-                    searchInput.focus();
-                    searchInput.select();
-                }
-            } else if (e.key === 'Escape') {
-                const modal = document.querySelector('.modal-overlay.active');
-                if (modal) {
-                    modal.classList.remove('active');
-                }
-            }
-        });
-    </script>
+    <script src="/static/js/main.js" defer></script>
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>

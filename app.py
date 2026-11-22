@@ -127,9 +127,10 @@ def security_headers(response):
     csp_directives = [
         "default-src 'self'",
         "img-src 'self' data: https: blob:",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
+        # All styles live in external CSS files; no inline style attributes remain in templates.
+        "style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com",
-        "script-src 'self' 'unsafe-inline'",
+        "script-src 'self'",
         "connect-src 'self'",
         "frame-ancestors 'self'",
         "base-uri 'self'",
@@ -220,9 +221,25 @@ def index():
         "categories": len(categories),
     }
 
+    prompt_items = [
+        {
+            "id": p["id"],
+            "imagePath": p["image_path"],
+            "promptText": p["prompt_text"],
+            "category": p["category"],
+            "date": str(p["timestamp"])[:10],
+            "downloadUrl": url_for(
+                "download_file",
+                filename=p["image_path"].removeprefix("/static/uploads/"),
+            ),
+        }
+        for p in prompts
+    ]
+
     return render_template(
         "index.html",
         prompts=prompts,
+        prompt_items=prompt_items,
         categories=categories,
         sort=sort,
         selected_cat=selected_cat,

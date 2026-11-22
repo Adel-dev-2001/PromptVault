@@ -5,6 +5,7 @@ import re
 import sys
 import tempfile
 import unittest
+from html.parser import HTMLParser
 from pathlib import Path
 
 from PIL import Image
@@ -39,7 +40,13 @@ class PromptVaultTests(unittest.TestCase):
         page = self.client.get("/add").get_data(as_text=True)
         return re.search(r'name="csrf_token" value="([^"]+)"', page).group(1)
 
-    def upload(self, filename="example.png", contents=None, category="Examples"):
+    def upload(
+        self,
+        filename="example.png",
+        contents=None,
+        category="Examples",
+        prompt_text="A test image",
+    ):
         if contents is None:
             stream = io.BytesIO()
             Image.new("RGB", (4, 4), "white").save(stream, format="PNG")
@@ -49,7 +56,7 @@ class PromptVaultTests(unittest.TestCase):
             data={
                 "csrf_token": self.csrf_token(),
                 "image_file": (io.BytesIO(contents), filename),
-                "prompt_text": "A test image",
+                "prompt_text": prompt_text,
                 "category": category,
             },
             content_type="multipart/form-data",
@@ -181,10 +188,46 @@ class PromptVaultTests(unittest.TestCase):
     def test_security_headers_and_csp(self):
         res = self.client.get("/")
         self.assertEqual(res.status_code, 200)
-        self.assertIn("Content-Security-Policy", res.headers)
-        self.assertIn("default-src 'self'", res.headers["Content-Security-Policy"])
+        csp = res.headers.get("Content-Security-Policy", "")
+        self.assertIn("default-src 'self'", csp)
+        directives = {
+            part.strip().split()[0]: part.strip().split()[1:]
+            for part in csp.split(";")
+            if part.strip()
+        }
+        self.assertIn("script-src", directives)
+        self.assertNotIn("'unsafe-inline'", directives["script-src"])
+        self.assertEqual(directives["script-src"], ["'self'"])
         self.assertEqual(res.headers.get("X-Frame-Options"), "SAMEORIGIN")
         self.assertIn("Permissions-Policy", res.headers)
+
+    def test_prompt_xss_attribute_injection_prevented(self):
+        payload = '" onfocus=alert(1) x=" <script>evil()</script> & \u0639\u0631\u0628\u064a'
+        res = self.upload(prompt_text=payload, category="Examples")
+        self.assertEqual(res.status_code, 302)
+
+        gallery = self.client.get("/")
+        self.assertEqual(gallery.status_code, 200)
+        body = gallery.get_data(as_text=True)
+
+        class AttrInspector(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.attrs = []
+
+            def handle_starttag(self, tag, attrs):
+                self.attrs.extend(attrs)
+
+        inspector = AttrInspector()
+        inspector.feed(body)
+        attr_names = {name.lower() for name, _ in inspector.attrs}
+        self.assertNotIn("onfocus", attr_names)
+        self.assertNotIn("onclick", attr_names)
+        self.assertNotIn("x", attr_names)
+        self.assertNotIn("<script>evil()</script>", body)
+        for name, value in inspector.attrs:
+            if name.lower().startswith("on"):
+                self.fail(f"Unexpected inline event handler: {name}={value}")
 
     def test_robots_and_sitemap(self):
         robots_res = self.client.get("/robots.txt")

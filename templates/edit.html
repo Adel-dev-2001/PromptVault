@@ -48,12 +48,8 @@ endblock %}
         </form>
     </div>
 </div>
+{% endblock %}
 
-<script>
-    const promptText = document.getElementById('prompt_text');
-    const charCounter = document.getElementById('charCounter');
-    promptText.addEventListener('input', function () {
-        charCounter.textContent = this.value.length + ' chars';
-    });
-</script>
+{% block extra_scripts %}
+<script src="/static/js/form.js" defer></script>
 {% endblock %}
