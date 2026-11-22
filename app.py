@@ -33,7 +33,7 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32)
 
-UPLOAD_FOLDER = os.path.join("static", "uploads")
+UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 MAX_IMAGE_PIXELS = 20_000_000
 MAX_CONTENT_LENGTH = 10 * 1024 * 1024
@@ -46,7 +46,10 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 csrf = CSRFProtect(app)
 CATEGORY_PATTERN = re.compile(r"^[\w \-]{1,30}$")
 
-database_path = os.path.abspath(os.environ.get("DATABASE_PATH", "prompts.db"))
+default_database_path = os.path.join(app.root_path, "prompts.db")
+raw_database_path = os.environ.get("DATABASE_PATH", "").strip()
+database_path = os.path.abspath(raw_database_path) if raw_database_path else default_database_path
+os.makedirs(os.path.dirname(database_path), exist_ok=True)
 sqlite3.connect(database_path).close()
 db = SQL(f"sqlite:///{database_path}")
 
