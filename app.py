@@ -1,12 +1,10 @@
-"""
-PromptVault: Flask application for storing and organizing AI-generated images
-alongside the prompts used to create them.
-"""
+"""PromptVault: Flask application for storing AI-generated images and their prompts."""
 
 import os
 import re
 import sqlite3
-from urllib.parse import quote_plus, unquote
+from urllib.parse import quote_plus, unquote, urlsplit
+
 from cs50 import SQL
 from flask import (
     Flask,
@@ -20,30 +18,44 @@ from flask import (
     url_for,
 )
 from flask_wtf.csrf import CSRFProtect
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageSequence, UnidentifiedImageError
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
 
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+EXPECTED_IMAGE_FORMATS = {
+    "png": "PNG",
+    "jpg": "JPEG",
+    "jpeg": "JPEG",
+    "gif": "GIF",
+    "webp": "WEBP",
+}
+MAX_IMAGE_PIXELS = 20_000_000
+MAX_CONTENT_LENGTH = 10 * 1024 * 1024
+CATEGORY_PATTERN = re.compile(r"\A[\w \-]{1,30}\Z")
+
 app = Flask(__name__)
+IS_PRODUCTION = os.environ.get("APP_ENV", "development").strip().lower() == "production"
 app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32)
 
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
-MAX_IMAGE_PIXELS = 20_000_000
-MAX_CONTENT_LENGTH = 10 * 1024 * 1024
-
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
+
+if os.environ.get("TRUST_PROXY") == "1":
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 csrf = CSRFProtect(app)
-CATEGORY_PATTERN = re.compile(r"\A[\w \-]{1,30}\Z")
 
 default_database_path = os.path.join(app.root_path, "prompts.db")
 raw_database_path = os.environ.get("DATABASE_PATH", "").strip()
@@ -62,16 +74,14 @@ db.execute("""
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
 """)
-
 db.execute("CREATE INDEX IF NOT EXISTS idx_images_category ON images (category)")
 db.execute("CREATE INDEX IF NOT EXISTS idx_images_favorite ON images (is_favorite)")
 db.execute("CREATE INDEX IF NOT EXISTS idx_images_timestamp ON images (timestamp)")
-
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 def allowed_file(filename: str) -> bool:
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    """Return True if filename has an allowed image extension."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
@@ -81,12 +91,12 @@ def valid_category(name: str) -> bool:
 
 
 def upload_path_from_url(image_path: str):
-    """Map a /static/uploads URL to a path inside UPLOAD_FOLDER, or return None."""
+    """Resolve a /static/uploads URL inside UPLOAD_FOLDER, or return None if invalid."""
     prefix = "/static/uploads/"
     if not isinstance(image_path, str) or not image_path.startswith(prefix):
         return None
 
-    relative_path = unquote(image_path[len(prefix):])
+    relative_path = unquote(image_path[len(prefix) :])
     if "\\" in relative_path or "\x00" in relative_path:
         return None
     upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
@@ -99,6 +109,59 @@ def upload_path_from_url(image_path: str):
     return full_path
 
 
+def validate_uploaded_image(file_storage, extension: str) -> None:
+    """Verify binary image format and per-frame pixel bounds; resets stream to start."""
+    with Image.open(file_storage.stream) as uploaded_image:
+        if uploaded_image.format != EXPECTED_IMAGE_FORMATS.get(extension):
+            raise ValueError("Image contents do not match the extension.")
+        for frame in ImageSequence.Iterator(uploaded_image):
+            frame_pixels = frame.width * frame.height
+            tile_pixels = 0
+            for tile in frame.tile or ():
+                if len(tile) >= 2 and isinstance(tile[1], tuple) and len(tile[1]) == 4:
+                    x0, y0, x1, y1 = tile[1]
+                    tile_pixels = max(tile_pixels, max(0, x1 - x0) * max(0, y1 - y0))
+            if max(frame_pixels, tile_pixels) > MAX_IMAGE_PIXELS:
+                raise ValueError("Image frame exceeds pixel limit.")
+    file_storage.stream.seek(0)
+    with Image.open(file_storage.stream) as verified_image:
+        verified_image.verify()
+    file_storage.stream.seek(0)
+
+
+def prune_empty_folder(folder: str) -> None:
+    """Remove folder if it is empty and inside UPLOAD_FOLDER."""
+    upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
+    folder_abs = os.path.abspath(folder)
+    try:
+        if (
+            os.path.commonpath([upload_root, folder_abs]) == upload_root
+            and folder_abs != upload_root
+            and os.path.isdir(folder_abs)
+            and not os.listdir(folder_abs)
+        ):
+            os.rmdir(folder_abs)
+    except (OSError, ValueError):
+        pass
+
+
+def escape_like(value: str) -> str:
+    """Escape SQL LIKE wildcard characters so they match literally."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def safe_same_origin_redirect(referrer: str | None) -> str:
+    """Return a relative redirect target when referrer matches request host, else index."""
+    if not referrer:
+        return url_for("index")
+    host_parts = urlsplit(request.host_url)
+    ref_parts = urlsplit(referrer)
+    same_origin = ref_parts.scheme == host_parts.scheme and ref_parts.netloc == host_parts.netloc
+    if same_origin and ref_parts.path.startswith("/") and not ref_parts.path.startswith("//"):
+        return f"{ref_parts.path}?{ref_parts.query}" if ref_parts.query else ref_parts.path
+    return url_for("index")
+
+
 @app.after_request
 def security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -109,7 +172,7 @@ def security_headers(response):
     csp_directives = [
         "default-src 'self'",
         "img-src 'self' data: https: blob:",
-        # All styles live in external CSS files; no inline style attributes remain in templates.
+        # Templates load external stylesheets only and avoid inline style attributes.
         "style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com",
         "script-src 'self'",
@@ -121,7 +184,7 @@ def security_headers(response):
     response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
 
     if request.is_secure:
-        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     return response
 
 
@@ -160,46 +223,32 @@ def index():
 
     order = "DESC" if sort == "newest" else "ASC"
 
-    if q:
-        search_pattern = f"%{q}%"
-        if show_fav:
-            prompts = db.execute(
-                f"SELECT * FROM images WHERE is_favorite = 1 AND (prompt_text LIKE ? OR category LIKE ?) ORDER BY timestamp {order}",
-                search_pattern,
-                search_pattern,
-            )
-        elif selected_cat:
-            prompts = db.execute(
-                f"SELECT * FROM images WHERE category = ? AND (prompt_text LIKE ? OR category LIKE ?) ORDER BY timestamp {order}",
-                selected_cat,
-                search_pattern,
-                search_pattern,
-            )
-        else:
-            prompts = db.execute(
-                f"SELECT * FROM images WHERE (prompt_text LIKE ? OR category LIKE ?) ORDER BY timestamp {order}",
-                search_pattern,
-                search_pattern,
-            )
-    else:
-        if show_fav:
-            prompts = db.execute(
-                f"SELECT * FROM images WHERE is_favorite = 1 ORDER BY timestamp {order}"
-            )
-        elif selected_cat:
-            prompts = db.execute(
-                f"SELECT * FROM images WHERE category = ? ORDER BY timestamp {order}",
-                selected_cat,
-            )
-        else:
-            prompts = db.execute(f"SELECT * FROM images ORDER BY timestamp {order}")
+    clauses = []
+    params = []
+    if show_fav:
+        clauses.append("is_favorite = 1")
+    elif selected_cat:
+        clauses.append("category = ?")
+        params.append(selected_cat)
 
-    # Calculate summary metrics for dashboard
-    total_count = len(db.execute("SELECT id FROM images"))
-    fav_count = len(db.execute("SELECT id FROM images WHERE is_favorite = 1"))
+    if q:
+        search_pattern = f"%{escape_like(q)}%"
+        # Bind the escape character as a parameter so cs50's sqlparse tokenizer
+        # does not mistake literal '\\' for an escaped SQL quote.
+        clauses.append("(prompt_text LIKE ? ESCAPE ? OR category LIKE ? ESCAPE ?)")
+        params.extend([search_pattern, "\\", search_pattern, "\\"])
+
+    where_sql = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    prompts = db.execute(f"SELECT * FROM images{where_sql} ORDER BY timestamp {order}", *params)
+
+    stats_row = db.execute(
+        "SELECT COUNT(*) AS total, "
+        "COALESCE(SUM(CASE WHEN is_favorite = 1 THEN 1 ELSE 0 END), 0) AS favorites "
+        "FROM images"
+    )[0]
     stats = {
-        "total": total_count,
-        "favorites": fav_count,
+        "total": stats_row["total"],
+        "favorites": stats_row["favorites"],
         "categories": len(categories),
     }
 
@@ -233,7 +282,6 @@ def index():
 
 @app.route("/add", methods=["GET", "POST"])
 def add():
-    """Handle new prompt & artwork upload with rigorous validation."""
     if request.method == "POST":
         file = request.files.get("image_file")
         prompt = request.form.get("prompt_text", "").strip()
@@ -250,75 +298,65 @@ def add():
             )
             return render_template("add.html"), 400
 
-        if file and file.filename != "":
-            if not allowed_file(file.filename):
-                flash(
-                    "Invalid file type. Please upload an image (png, jpg, jpeg, gif, webp).",
-                    "error",
-                )
-                return render_template("add.html")
+        if not file or file.filename == "":
+            flash("Please select an image file.", "error")
+            return render_template("add.html"), 400
 
-            expected_formats = {
-                "png": "PNG",
-                "jpg": "JPEG",
-                "jpeg": "JPEG",
-                "gif": "GIF",
-                "webp": "WEBP",
-            }
-            extension = file.filename.rsplit(".", 1)[1].lower()
+        if not allowed_file(file.filename):
+            flash(
+                "Invalid file type. Please upload an image (png, jpg, jpeg, gif, webp).",
+                "error",
+            )
+            return render_template("add.html"), 400
 
-            # Deep image verification via Pillow
-            try:
-                with Image.open(file.stream) as uploaded_image:
-                    if uploaded_image.format != expected_formats.get(extension):
-                        raise ValueError("Image contents do not match the extension.")
-                    if uploaded_image.width * uploaded_image.height > MAX_IMAGE_PIXELS:
-                        raise ValueError("Image dimensions exceed 20 million pixels limit.")
-                    uploaded_image.verify()
-                file.stream.seek(0)
-            except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
-                flash(
-                    "Please upload a valid image, with matching extension and at most 20 million pixels.",
-                    "error",
-                )
-                return render_template("add.html"), 400
+        extension = file.filename.rsplit(".", 1)[1].lower()
+        try:
+            validate_uploaded_image(file, extension)
+        except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+            flash(
+                "Please upload a valid image with matching extension within pixel limits.",
+                "error",
+            )
+            return render_template("add.html"), 400
 
-            # Sanitize filename and resolve collisions
-            stem, ext = file.filename.rsplit(".", 1)
-            stem = secure_filename(stem) or "image"
-            ext = ext.lower()
-            filename = f"{stem}.{ext}"
+        stem, ext = file.filename.rsplit(".", 1)
+        stem = secure_filename(stem) or "image"
+        ext = ext.lower()
+        filename = f"{stem}.{ext}"
 
-            # Create category-specific upload folder
-            cat_folder = os.path.join(app.config["UPLOAD_FOLDER"], cat)
-            os.makedirs(cat_folder, exist_ok=True)
+        cat_folder = os.path.join(app.config["UPLOAD_FOLDER"], cat)
+        os.makedirs(cat_folder, exist_ok=True)
 
-            counter = 1
-            while os.path.exists(os.path.join(cat_folder, filename)):
-                filename = f"{stem}_{counter}.{ext}"
-                counter += 1
+        counter = 1
+        while os.path.exists(os.path.join(cat_folder, filename)):
+            filename = f"{stem}_{counter}.{ext}"
+            counter += 1
 
-            file_destination = os.path.join(cat_folder, filename)
-            file.save(file_destination)
-            image_path = url_for("static", filename=f"uploads/{cat}/{filename}")
+        file_destination = os.path.join(cat_folder, filename)
+        file.save(file_destination)
+        image_path = url_for("static", filename=f"uploads/{cat}/{filename}")
 
+        try:
             db.execute(
                 "INSERT INTO images (image_path, prompt_text, category) VALUES (?, ?, ?)",
                 image_path,
                 prompt,
                 cat,
             )
-            flash("Prompt added successfully!", "success")
-            return redirect(url_for("index"))
-        else:
-            flash("Please select an image file.", "error")
+        except Exception:
+            if os.path.isfile(file_destination):
+                os.remove(file_destination)
+            prune_empty_folder(cat_folder)
+            raise
+
+        flash("Prompt added successfully!", "success")
+        return redirect(url_for("index"))
 
     return render_template("add.html")
 
 
 @app.route("/edit/<int:id>", methods=["GET", "POST"])
 def edit(id: int):
-    """Edit prompt metadata and synchronize directory structure if category changes."""
     rows = db.execute("SELECT * FROM images WHERE id = ?", id)
     if not rows:
         flash("Item not found.", "error")
@@ -345,14 +383,17 @@ def edit(id: int):
         source_path = upload_path_from_url(image_path)
         upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
 
-        # If category changed, move file to the target category folder safely
-        if new_cat != prompt_data["category"] and source_path and os.path.isfile(source_path):
+        if new_cat != prompt_data["category"]:
+            if not source_path or not os.path.isfile(source_path):
+                flash("Cannot change category because the image file is missing on disk.", "error")
+                return render_template("edit.html", item=prompt_data), 400
+
             target_folder = os.path.abspath(os.path.join(upload_root, new_cat))
             try:
                 if os.path.commonpath([upload_root, target_folder]) != upload_root:
                     raise ValueError("Invalid category folder.")
             except ValueError:
-                flash("Could not move the image to that category. Please try another name.", "error")
+                flash("Could not move the image to that category.", "error")
                 return render_template("edit.html", item=prompt_data), 400
 
             os.makedirs(target_folder, exist_ok=True)
@@ -360,7 +401,9 @@ def edit(id: int):
             stem, ext = os.path.splitext(original_name)
             target_path = os.path.join(target_folder, original_name)
             counter = 1
-            while os.path.exists(target_path) and os.path.abspath(target_path) != os.path.abspath(source_path):
+            while os.path.exists(target_path) and (
+                os.path.abspath(target_path) != os.path.abspath(source_path)
+            ):
                 target_path = os.path.join(target_folder, f"{stem}_{counter}{ext}")
                 counter += 1
 
@@ -369,17 +412,11 @@ def edit(id: int):
                     os.replace(source_path, target_path)
                 except OSError:
                     flash("Could not move the image. Your changes were not saved.", "error")
-                    return redirect(f"/edit/{id}")
+                    return render_template("edit.html", item=prompt_data), 500
 
                 relative_target = os.path.relpath(target_path, upload_root).replace(os.sep, "/")
                 image_path = url_for("static", filename=f"uploads/{relative_target}")
-
-                old_folder = os.path.dirname(source_path)
-                try:
-                    if old_folder != target_folder and os.path.isdir(old_folder) and not os.listdir(old_folder):
-                        os.rmdir(old_folder)
-                except OSError:
-                    pass
+                prune_empty_folder(os.path.dirname(source_path))
 
         db.execute(
             "UPDATE images SET prompt_text = ?, category = ?, image_path = ? WHERE id = ?",
@@ -396,55 +433,47 @@ def edit(id: int):
 
 @app.route("/favorite/<int:id>", methods=["POST"])
 def favorite(id: int):
-    """Toggle the favorite status of a prompt entry."""
+    rows = db.execute("SELECT id FROM images WHERE id = ?", id)
+    if not rows:
+        abort(404)
     db.execute("UPDATE images SET is_favorite = 1 - is_favorite WHERE id = ?", id)
-    return redirect(request.referrer or url_for("index"))
+    return redirect(safe_same_origin_redirect(request.referrer))
 
 
 @app.route("/delete/<int:id>", methods=["POST"])
 def delete(id: int):
-    """Safely delete prompt record and its corresponding artwork file."""
     data = db.execute("SELECT image_path FROM images WHERE id = ?", id)
-    if data:
-        path = upload_path_from_url(data[0]["image_path"])
-        if path and os.path.isfile(path):
-            try:
-                os.remove(path)
-            except OSError:
-                pass
+    if not data:
+        abort(404)
 
-            # Prune empty category directories safely
-            folder = os.path.dirname(path)
-            upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
-            try:
-                if (
-                    os.path.commonpath([upload_root, folder]) == upload_root
-                    and os.path.isdir(folder)
-                    and not os.listdir(folder)
-                ):
-                    os.rmdir(folder)
-            except (OSError, ValueError):
-                pass
+    path = upload_path_from_url(data[0]["image_path"])
+    if path and os.path.isfile(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        prune_empty_folder(os.path.dirname(path))
 
-        db.execute("DELETE FROM images WHERE id = ?", id)
-        flash("Deleted successfully.", "success")
+    db.execute("DELETE FROM images WHERE id = ?", id)
+    flash("Deleted successfully.", "success")
     return redirect(url_for("index"))
 
 
 @app.route("/about")
 def about():
-    """Render About page with architecture overview and system specifications."""
     return render_template("about.html")
 
 
 @app.route("/download/<path:filename>")
 def download_file(filename: str):
-    """
-    Secure file download handler with directory containment check
-    to eliminate path traversal risks.
-    """
+    decoded = unquote(filename)
+    if "\\" in filename or "\\" in decoded or "\x00" in filename or "\x00" in decoded:
+        abort(404)
+    if any(part == ".." for part in decoded.split("/")):
+        abort(404)
+
     upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
-    full_path = os.path.abspath(os.path.join(upload_root, filename))
+    full_path = os.path.abspath(os.path.join(upload_root, decoded))
     try:
         inside_uploads = os.path.commonpath([upload_root, full_path]) == upload_root
     except ValueError:
@@ -505,13 +534,15 @@ def sitemap_xml():
 
     for cat in categories:
         safe_cat = quote_plus(str(cat["category"]))
-        xml_lines.extend([
-            "  <url>",
-            f"    <loc>{base_url}/?category={safe_cat}</loc>",
-            "    <changefreq>daily</changefreq>",
-            "    <priority>0.6</priority>",
-            "  </url>",
-        ])
+        xml_lines.extend(
+            [
+                "  <url>",
+                f"    <loc>{base_url}/?category={safe_cat}</loc>",
+                "    <changefreq>daily</changefreq>",
+                "    <priority>0.6</priority>",
+                "  </url>",
+            ]
+        )
 
     xml_lines.append("</urlset>")
     return Response("\n".join(xml_lines), mimetype="application/xml")
@@ -519,6 +550,6 @@ def sitemap_xml():
 
 if __name__ == "__main__":
     host = os.environ.get("HOST", "127.0.0.1")
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG") == "1"
     app.run(host=host, port=port, debug=debug)

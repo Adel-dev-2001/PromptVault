@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from html.parser import HTMLParser
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -292,21 +293,186 @@ class PromptVaultTests(unittest.TestCase):
             self.module.app.config["MAX_CONTENT_LENGTH"] = original_limit
 
     def test_download_traversal_rejected(self):
-        self.assertEqual(self.client.get("/download/../prompts.db").status_code, 404)
+        traversal_paths = [
+            "/download/../prompts.db",
+            "/download/%2e%2e%2fprompts.db",
+            "/download/%252e%252e%252fprompts.db",
+            "/download/..%5cprompts.db",
+            "/download/Examples%5c..%5cprompts.db",
+            "/download/Examples/%2e%2e%2fprompts.db",
+        ]
+        for path in traversal_paths:
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 404)
+        raw_res = self.client.get(
+            "/download/raw",
+            environ_base={"PATH_INFO": "/download/%2e%2e%2fprompts.db"},
+        )
+        self.assertEqual(raw_res.status_code, 404)
 
     def test_search_filtering(self):
-        self.upload(filename="scifi1.png", category="SciFi")
-        self.upload(filename="art1.png", category="Art")
+        self.upload(filename="scifi1.png", category="SciFi", prompt_text="Orbital station")
+        self.upload(filename="art1.png", category="Art", prompt_text="Oil portrait")
+        self.upload(filename="pct.png", category="Wild", prompt_text="100% cotton texture")
+        self.upload(filename="nonpct.png", category="Wild", prompt_text="100x cotton texture")
+        self.upload(filename="under.png", category="Wild", prompt_text="snake_case style")
+        self.upload(filename="nonunder.png", category="Wild", prompt_text="snakexcase style")
 
-        # Search by matching category
         res = self.client.get("/?q=SciFi")
         self.assertEqual(res.status_code, 200)
         self.assertIn("SciFi", res.get_data(as_text=True))
 
-        # Search by non-existent query
         res_empty = self.client.get("/?q=NonExistentQuery123")
         self.assertEqual(res_empty.status_code, 200)
         self.assertIn("No results matching query", res_empty.get_data(as_text=True))
+
+        res_pct = self.client.get("/?q=100%25")
+        self.assertEqual(res_pct.status_code, 200)
+        pct_body = res_pct.get_data(as_text=True)
+        self.assertIn("100% cotton texture", pct_body)
+        self.assertNotIn("100x cotton texture", pct_body)
+
+        res_under = self.client.get("/?q=snake_case")
+        self.assertEqual(res_under.status_code, 200)
+        under_body = res_under.get_data(as_text=True)
+        self.assertIn("snake_case style", under_body)
+        self.assertNotIn("snakexcase style", under_body)
+
+    def test_add_validation_errors_return_400(self):
+        cases = [
+            {"csrf_token": self.csrf_token(), "prompt_text": "", "category": "Examples"},
+            {"csrf_token": self.csrf_token(), "prompt_text": "Valid prompt", "category": ""},
+            {
+                "csrf_token": self.csrf_token(),
+                "prompt_text": "Missing file",
+                "category": "Examples",
+            },
+        ]
+        for data in cases:
+            res = self.client.post("/add", data=data, content_type="multipart/form-data")
+            self.assertEqual(res.status_code, 400)
+        self.assertEqual(self.upload(filename="note.txt", contents=b"hello").status_code, 400)
+        self.assertEqual(self.module.db.execute("SELECT * FROM images"), [])
+
+    def test_add_cleans_up_file_if_db_insert_fails(self):
+        original_execute = self.module.db.execute
+        stream = io.BytesIO()
+        Image.new("RGB", (4, 4), "green").save(stream, format="PNG")
+
+        def fail_on_insert(sql, *args, **kwargs):
+            if sql.lstrip().upper().startswith("INSERT"):
+                raise RuntimeError("Simulated DB failure")
+            return original_execute(sql, *args, **kwargs)
+
+        with patch.object(self.module.db, "execute", side_effect=fail_on_insert):
+            self.module.app.config["PROPAGATE_EXCEPTIONS"] = False
+            try:
+                res = self.client.post(
+                    "/add",
+                    data={
+                        "csrf_token": self.csrf_token(),
+                        "image_file": (io.BytesIO(stream.getvalue()), "orphan_check.png"),
+                        "prompt_text": "Cleanup test",
+                        "category": "OrphanTest",
+                    },
+                    content_type="multipart/form-data",
+                )
+            finally:
+                self.module.app.config["PROPAGATE_EXCEPTIONS"] = None
+        self.assertEqual(res.status_code, 500)
+        cat_dir = Path(self.module.app.config["UPLOAD_FOLDER"]) / "Orphantest"
+        self.assertFalse(cat_dir.exists())
+
+    def test_edit_missing_file_refuses_category_change(self):
+        self.assertEqual(self.upload(category="Examples").status_code, 302)
+        row = self.module.db.execute("SELECT * FROM images")[0]
+        file_path = Path(self.module.upload_path_from_url(row["image_path"]))
+        file_path.unlink()
+
+        res = self.client.post(
+            f"/edit/{row['id']}",
+            data={
+                "csrf_token": self.csrf_token(),
+                "prompt_text": "Changed prompt",
+                "category": "Revised",
+            },
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("missing on disk", res.get_data(as_text=True))
+        current = self.module.db.execute("SELECT * FROM images WHERE id = ?", row["id"])[0]
+        self.assertEqual(current["category"], "Examples")
+
+    def test_favorite_and_delete_nonexistent_id_return_404(self):
+        self.assertEqual(
+            self.client.post("/favorite/99999", data={"csrf_token": self.csrf_token()}).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.post("/delete/99999", data={"csrf_token": self.csrf_token()}).status_code,
+            404,
+        )
+
+    def test_favorite_redirects_only_same_origin(self):
+        self.upload()
+        identifier = self.module.db.execute("SELECT id FROM images")[0]["id"]
+
+        external = self.client.post(
+            f"/favorite/{identifier}",
+            data={"csrf_token": self.csrf_token()},
+            headers={"Referer": "https://evil.example/phish"},
+        )
+        self.assertEqual(external.status_code, 302)
+        self.assertEqual(external.headers["Location"], "/")
+
+        same_origin = self.client.post(
+            f"/favorite/{identifier}",
+            data={"csrf_token": self.csrf_token()},
+            headers={"Referer": "http://localhost/?favorites=1&sort=oldest"},
+        )
+        self.assertEqual(same_origin.status_code, 302)
+        self.assertEqual(same_origin.headers["Location"], "/?favorites=1&sort=oldest")
+
+    def test_animated_gif_frame_pixel_limit(self):
+        small_frame = Image.new("RGB", (4, 4), "red")
+        valid_buf = io.BytesIO()
+        small_frame.save(valid_buf, format="GIF", save_all=True, append_images=[small_frame])
+
+        large_frame = Image.new("RGB", (6, 6), "blue")
+        oversized_buf = io.BytesIO()
+        large_frame.save(oversized_buf, format="GIF", save_all=True, append_images=[small_frame])
+
+        # Build a 2-frame GIF whose 4x4 logical screen fits, while frame 2 declares a 10x10 tile.
+        frame1 = Image.new("RGB", (4, 4), "red")
+        frame2 = Image.new("RGB", (10, 10), "blue")
+        tmp_buf = io.BytesIO()
+        frame2.save(tmp_buf, format="GIF")
+        raw_frame2 = tmp_buf.getvalue()
+        img_sep_idx = raw_frame2.find(b"\x2c")
+        f1_buf = io.BytesIO()
+        frame1.save(f1_buf, format="GIF")
+        raw_f1 = bytearray(f1_buf.getvalue())
+        # Append second frame descriptor (with 10x10 width/height) before GIF trailer byte ';'.
+        crafted_gif = bytes(raw_f1[:-1]) + raw_frame2[img_sep_idx:]
+
+        with patch.object(self.module, "MAX_IMAGE_PIXELS", 25):
+            ok_res = self.upload("ok.gif", valid_buf.getvalue(), category="Animated")
+            self.assertEqual(ok_res.status_code, 302)
+
+            bad_res = self.upload("too_big.gif", oversized_buf.getvalue(), category="Animated")
+            self.assertEqual(bad_res.status_code, 400)
+
+            crafted_res = self.upload("crafted.gif", crafted_gif, category="Animated")
+            self.assertEqual(crafted_res.status_code, 400)
+
+    def test_hsts_only_on_https(self):
+        http_res = self.client.get("/")
+        self.assertNotIn("Strict-Transport-Security", http_res.headers)
+
+        https_res = self.client.get("/", base_url="https://localhost/")
+        self.assertIn("Strict-Transport-Security", https_res.headers)
+        hsts = https_res.headers["Strict-Transport-Security"]
+        self.assertIn("max-age=63072000", hsts)
+        self.assertNotIn("preload", hsts)
 
     def test_security_headers_and_csp(self):
         res = self.client.get("/")
