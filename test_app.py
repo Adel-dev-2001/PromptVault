@@ -180,9 +180,41 @@ class PromptVaultTests(unittest.TestCase):
         self.assertEqual(self.module.db.execute("SELECT * FROM images"), [])
 
     def test_invalid_category_rejected(self):
-        self.upload(category="../outside")
-        self.assertEqual(self.module.db.execute("SELECT * FROM images"), [])
-        self.assertFalse(self.module.valid_category("Example\n"))
+        invalid_categories = [
+            "Fish #1",
+            "a/b",
+            "../outside",
+            "..",
+            "foo.",
+            "Example\n",
+            "foo\x00bar",
+            "\u200f",
+            "Arab\u200fic",
+            "   ",
+        ]
+        for category in invalid_categories:
+            with self.subTest(category=category):
+                self.assertFalse(self.module.valid_category(category))
+                res = self.upload(category=category)
+                self.assertEqual(res.status_code, 400)
+                self.assertEqual(self.module.db.execute("SELECT * FROM images"), [])
+
+    def test_valid_unicode_and_spaced_categories_served(self):
+        for category in ["تصميم", "فن رقمي", "Sci-Fi_Art 1"]:
+            with self.subTest(category=category):
+                self.assertTrue(self.module.valid_category(category))
+                res = self.upload(filename=f"{category[:3]}.png", category=category)
+                self.assertEqual(res.status_code, 302)
+                row = self.module.db.execute(
+                    "SELECT * FROM images WHERE category = ? ORDER BY id DESC LIMIT 1",
+                    category.title(),
+                )[0]
+                self.assertNotIn("#", row["image_path"])
+                with self.client.get(row["image_path"]) as img_res:
+                    self.assertEqual(img_res.status_code, 200)
+                download_path = row["image_path"].removeprefix("/static/uploads/")
+                with self.client.get("/download/" + download_path) as dl_res:
+                    self.assertEqual(dl_res.status_code, 200)
 
     def test_favorite_filter_survives_sort(self):
         self.upload()

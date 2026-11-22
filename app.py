@@ -6,8 +6,7 @@ alongside the prompts used to create them.
 import os
 import re
 import sqlite3
-import unicodedata
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, unquote
 from cs50 import SQL
 from flask import (
     Flask,
@@ -44,7 +43,7 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 csrf = CSRFProtect(app)
-CATEGORY_PATTERN = re.compile(r"^[\w \-]{1,30}$")
+CATEGORY_PATTERN = re.compile(r"\A[\w \-]{1,30}\Z")
 
 default_database_path = os.path.join(app.root_path, "prompts.db")
 raw_database_path = os.environ.get("DATABASE_PATH", "").strip()
@@ -76,40 +75,20 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-FORBIDDEN_CATEGORY_CHARS = set('/\\:*?"<>|\n\r\t\0')
-
-
-def sanitize_category(raw: str) -> str:
-    """Strip invisible bidirectional/format markers and normalize whitespace."""
-    if not isinstance(raw, str):
-        return ""
-    cleaned = "".join(ch for ch in raw if unicodedata.category(ch) != "Cf")
-    return " ".join(cleaned.strip().split())
-
-
 def valid_category(name: str) -> bool:
-    """Validate that a category name is safe for filesystem directory creation across all languages."""
-    if not isinstance(name, str):
-        return False
-    if any(ch in FORBIDDEN_CATEGORY_CHARS for ch in name):
-        return False
-    cleaned = sanitize_category(name)
-    if not (1 <= len(cleaned) <= 30) or ".." in cleaned or cleaned.startswith(".") or cleaned.endswith("."):
-        return False
-    for ch in cleaned:
-        cat_code = unicodedata.category(ch)
-        if cat_code.startswith("C"):
-            return False
-    return True
+    """Return True if name is 1-30 Unicode word chars, spaces, hyphens, or underscores."""
+    return isinstance(name, str) and bool(name.strip()) and bool(CATEGORY_PATTERN.fullmatch(name))
 
 
 def upload_path_from_url(image_path: str):
-    """Resolve a /static/uploads URL to an absolute path inside UPLOAD_FOLDER."""
+    """Map a /static/uploads URL to a path inside UPLOAD_FOLDER, or return None."""
     prefix = "/static/uploads/"
     if not isinstance(image_path, str) or not image_path.startswith(prefix):
         return None
 
-    relative_path = image_path[len(prefix):]
+    relative_path = unquote(image_path[len(prefix):])
+    if "\\" in relative_path or "\x00" in relative_path:
+        return None
     upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
     full_path = os.path.abspath(os.path.join(upload_root, relative_path))
     try:
@@ -233,7 +212,7 @@ def index():
             "date": str(p["timestamp"])[:10],
             "downloadUrl": url_for(
                 "download_file",
-                filename=p["image_path"].removeprefix("/static/uploads/"),
+                filename=unquote(p["image_path"].removeprefix("/static/uploads/")),
             ),
         }
         for p in prompts
@@ -258,18 +237,18 @@ def add():
     if request.method == "POST":
         file = request.files.get("image_file")
         prompt = request.form.get("prompt_text", "").strip()
-        cat = sanitize_category(request.form.get("category", "")).title()
+        cat = request.form.get("category", "").strip(" ").title()
 
         if not prompt or not cat:
             flash("Please fill in all fields.", "error")
-            return render_template("add.html")
+            return render_template("add.html"), 400
 
         if not valid_category(cat):
             flash(
                 "Category can only contain letters, numbers, spaces, - and _ (max 30 characters).",
                 "error",
             )
-            return render_template("add.html")
+            return render_template("add.html"), 400
 
         if file and file.filename != "":
             if not allowed_file(file.filename):
@@ -321,7 +300,7 @@ def add():
 
             file_destination = os.path.join(cat_folder, filename)
             file.save(file_destination)
-            image_path = f"/static/uploads/{cat}/{filename}"
+            image_path = url_for("static", filename=f"uploads/{cat}/{filename}")
 
             db.execute(
                 "INSERT INTO images (image_path, prompt_text, category) VALUES (?, ?, ?)",
@@ -349,18 +328,18 @@ def edit(id: int):
 
     if request.method == "POST":
         new_prompt = request.form.get("prompt_text", "").strip()
-        new_cat = sanitize_category(request.form.get("category", "")).title()
+        new_cat = request.form.get("category", "").strip(" ").title()
 
         if not new_prompt or not new_cat:
             flash("Please fill in all fields.", "error")
-            return render_template("edit.html", item=prompt_data)
+            return render_template("edit.html", item=prompt_data), 400
 
         if not valid_category(new_cat):
             flash(
                 "Category can only contain letters, numbers, spaces, - and _ (max 30 characters).",
                 "error",
             )
-            return render_template("edit.html", item=prompt_data)
+            return render_template("edit.html", item=prompt_data), 400
 
         image_path = prompt_data["image_path"]
         source_path = upload_path_from_url(image_path)
@@ -393,7 +372,7 @@ def edit(id: int):
                     return redirect(f"/edit/{id}")
 
                 relative_target = os.path.relpath(target_path, upload_root).replace(os.sep, "/")
-                image_path = f"/static/uploads/{relative_target}"
+                image_path = url_for("static", filename=f"uploads/{relative_target}")
 
                 old_folder = os.path.dirname(source_path)
                 try:
