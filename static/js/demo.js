@@ -47,6 +47,9 @@
     const modalDownloadBtn = document.getElementById("modalDownloadBtn");
     const modalCopyBtn = document.getElementById("modalCopyBtn");
     const modalCloseBtn = document.getElementById("modalCloseBtn");
+    const modalController = window.PromptVault
+        ? window.PromptVault.createModalController(detailsModal, modalCloseBtn)
+        : null;
     const fileInput = document.getElementById("image_file");
     const preview = document.getElementById("preview");
     const fileLabel = document.getElementById("fileLabel");
@@ -390,11 +393,11 @@
         galleryGrid.innerHTML = filtered.map(renderCardHtml).join("");
     }
 
-    function openDetailsModal(id) {
+    function openDetailsModal(id, triggerEl) {
         const item = state.prompts.find(function (p) {
             return p.id === id;
         });
-        if (!item) return;
+        if (!item || !modalController) return;
 
         modalImage.src = safeImageSrc(item.image_path);
         modalImage.alt = "Artwork for prompt: " + item.prompt_text.slice(0, 60);
@@ -406,13 +409,7 @@
         modalDownloadBtn.setAttribute("download", buildDownloadFilename(item));
 
         state.currentModalText = item.prompt_text;
-        detailsModal.classList.add("active");
-        document.body.classList.add("modal-open");
-    }
-
-    function closeModal() {
-        detailsModal.classList.remove("active");
-        document.body.classList.remove("modal-open");
+        modalController.open(triggerEl);
     }
 
     function validatePromptAndCategory(prompt, rawCategory) {
@@ -519,7 +516,9 @@
             event.preventDefault();
             state.sort = "newest";
             sortNewest.classList.add("active");
+            sortNewest.setAttribute("aria-current", "true");
             sortOldest.classList.remove("active");
+            sortOldest.removeAttribute("aria-current");
             renderGallery();
         });
 
@@ -527,7 +526,9 @@
             event.preventDefault();
             state.sort = "oldest";
             sortOldest.classList.add("active");
+            sortOldest.setAttribute("aria-current", "true");
             sortNewest.classList.remove("active");
+            sortNewest.removeAttribute("aria-current");
             renderGallery();
         });
 
@@ -556,7 +557,7 @@
 
             const action = btn.dataset.action;
             if (action === "details") {
-                openDetailsModal(id);
+                openDetailsModal(id, btn);
             } else if (action === "copy") {
                 const item = state.prompts.find(function (p) {
                     return p.id === id;
@@ -589,12 +590,6 @@
             }
         });
 
-        detailsModal.addEventListener("click", function (event) {
-            if (event.target === detailsModal) {
-                closeModal();
-            }
-        });
-        modalCloseBtn.addEventListener("click", closeModal);
         modalCopyBtn.addEventListener("click", function () {
             if (window.PromptVault) {
                 window.PromptVault.copyPrompt(state.currentModalText, modalCopyBtn);

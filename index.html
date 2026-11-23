@@ -67,19 +67,27 @@
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
-    <header role="banner">
-        <a href="#gallery" class="logo" aria-label="PromptVault Home" data-nav="gallery">
+    <header>
+        <a href="#gallery" class="logo" data-nav="gallery">
             <span class="logo-icon" aria-hidden="true"><i class="fas fa-vault"></i></span>
             PromptVault
         </a>
-        <nav aria-label="Main Navigation">
+        <button type="button"
+                class="nav-toggle"
+                id="navToggle"
+                aria-expanded="false"
+                aria-controls="mainNav"
+                aria-label="Toggle navigation menu">
+            <i class="fas fa-bars" aria-hidden="true"></i>
+        </button>
+        <nav id="mainNav" class="main-nav" aria-label="Main">
             <a href="#gallery" id="navGallery" class="nav-link active" aria-current="page" data-nav="gallery">
                 <i class="fas fa-th-large" aria-hidden="true"></i> Gallery
             </a>
             <a href="#about" id="navAbout" class="nav-link" data-nav="about">
                 <i class="fas fa-info-circle" aria-hidden="true"></i> About
             </a>
-            <a href="#add" class="btn btn-primary" aria-label="Add new prompt" data-nav="add">
+            <a href="#add" class="btn btn-primary" data-nav="add">
                 <i class="fas fa-plus" aria-hidden="true"></i> Add Prompt
             </a>
         </nav>
@@ -87,7 +95,7 @@
 
     <div id="flashContainer" class="flash-container" role="region" aria-label="Notifications" hidden></div>
 
-    <main id="main-content" role="main">
+    <main id="main-content">
         <div id="viewGallery">
             <h1 class="sr-only">PromptVault Gallery Browser Demo</h1>
 
@@ -114,6 +122,8 @@
                                id="searchInput"
                                dir="auto"
                                placeholder="Search prompts or categories... (Press '/' to search)"
+                               data-placeholder-desktop="Search prompts or categories... (Press '/' to search)"
+                               data-placeholder-mobile="Search prompts..."
                                autocomplete="off"
                                aria-label="Search prompts and categories">
                         <a href="#clear"
@@ -131,17 +141,16 @@
                     <nav class="filter-group" aria-label="Category filters">
                         <ul class="filter-list" id="filterGroup"></ul>
                     </nav>
-                    <div class="sort-group" aria-label="Sort Options">
+                    <div class="sort-group" role="group" aria-label="Sort order">
                         <a href="#newest"
                            id="sortNewest"
                            class="sort-btn active"
-                           aria-label="Sort by newest first">
+                           aria-current="true">
                             <i class="fas fa-arrow-down" aria-hidden="true"></i> Newest
                         </a>
                         <a href="#oldest"
                            id="sortOldest"
-                           class="sort-btn"
-                           aria-label="Sort by oldest first">
+                           class="sort-btn">
                             <i class="fas fa-arrow-up" aria-hidden="true"></i> Oldest
                         </a>
                     </div>
@@ -401,7 +410,7 @@
 
     <div id="toastNotification" class="toast-notification" role="status" aria-live="polite"></div>
 
-    <footer role="contentinfo">
+    <footer>
         <div class="footer-content">
             <p>&copy; 2026 PromptVault | CS50x Final Project</p>
             <p class="footer-subtitle">by Adel Mohamed</p>

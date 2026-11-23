@@ -8,6 +8,7 @@ import secrets
 import sqlite3
 import sys
 import unicodedata
+from datetime import datetime, timezone
 from urllib.parse import unquote, urlsplit
 
 from cs50 import SQL
@@ -739,18 +740,28 @@ def robots_txt():
 @app.route("/sitemap.xml")
 def sitemap_xml():
     base_url = request.url_root.rstrip("/")
+    today = datetime.now(timezone.utc).date().isoformat()
+    latest_row = db.execute("SELECT MAX(timestamp) AS latest FROM images")[0]
+    gallery_lastmod = str(latest_row["latest"])[:10] if latest_row["latest"] else today
+
+    about_path = os.path.join(app.root_path, "templates", "about.html")
+    try:
+        about_lastmod = (
+            datetime.fromtimestamp(os.path.getmtime(about_path), tz=timezone.utc).date().isoformat()
+        )
+    except OSError:
+        about_lastmod = today
+
     xml_lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
         "  <url>",
         f"    <loc>{base_url}/</loc>",
-        "    <changefreq>daily</changefreq>",
-        "    <priority>1.0</priority>",
+        f"    <lastmod>{gallery_lastmod}</lastmod>",
         "  </url>",
         "  <url>",
         f"    <loc>{base_url}/about</loc>",
-        "    <changefreq>monthly</changefreq>",
-        "    <priority>0.8</priority>",
+        f"    <lastmod>{about_lastmod}</lastmod>",
         "  </url>",
         "</urlset>",
     ]

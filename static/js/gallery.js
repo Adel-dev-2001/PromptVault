@@ -22,11 +22,15 @@
     const modalCloseBtn = document.getElementById("modalCloseBtn");
     const galleryGrid = document.getElementById("galleryGrid");
 
+    const modalController = window.PromptVault
+        ? window.PromptVault.createModalController(modal, modalCloseBtn)
+        : null;
+
     let currentPromptText = "";
 
-    function openDetailsModal(index) {
+    function openDetailsModal(index, triggerEl) {
         const item = promptDataset[index];
-        if (!item || !modal) return;
+        if (!item || !modalController) return;
 
         modalImage.src = item.imagePath;
         modalImage.alt = "Artwork for prompt: " + item.promptText.slice(0, 60);
@@ -37,14 +41,7 @@
         modalDownloadBtn.href = item.downloadUrl;
 
         currentPromptText = item.promptText;
-        modal.classList.add("active");
-        document.body.classList.add("modal-open");
-    }
-
-    function closeModal() {
-        if (!modal) return;
-        modal.classList.remove("active");
-        document.body.classList.remove("modal-open");
+        modalController.open(triggerEl);
     }
 
     if (galleryGrid) {
@@ -55,23 +52,11 @@
             if (Number.isNaN(index) || !promptDataset[index]) return;
 
             if (target.dataset.action === "details") {
-                openDetailsModal(index);
+                openDetailsModal(index, target);
             } else if (target.dataset.action === "copy" && window.PromptVault) {
                 window.PromptVault.copyPrompt(promptDataset[index].promptText, target);
             }
         });
-    }
-
-    if (modal) {
-        modal.addEventListener("click", function (event) {
-            if (event.target === modal) {
-                closeModal();
-            }
-        });
-    }
-
-    if (modalCloseBtn) {
-        modalCloseBtn.addEventListener("click", closeModal);
     }
 
     if (modalCopyBtn) {

@@ -751,6 +751,17 @@ class PromptVaultTests(unittest.TestCase):
         self.assertIn("<urlset", sitemap_text)
         locs = re.findall(r"<loc>([^<]+)</loc>", sitemap_text)
         self.assertEqual(locs, ["http://localhost/", "http://localhost/about"])
+        lastmods = re.findall(r"<lastmod>(\d{4}-\d{2}-\d{2})</lastmod>", sitemap_text)
+        self.assertEqual(len(lastmods), 2)
+        self.assertNotIn("<changefreq>", sitemap_text)
+        self.assertNotIn("<priority>", sitemap_text)
+
+        static_sitemap = (Path(__file__).resolve().parent / "sitemap.xml").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(static_sitemap, r"<lastmod>\d{4}-\d{2}-\d{2}</lastmod>")
+        self.assertNotIn("<changefreq>", static_sitemap)
+        self.assertNotIn("<priority>", static_sitemap)
 
     def test_seo_metadata_headings_and_accessibility(self):
         self.upload(category="Examples")
@@ -790,7 +801,28 @@ class PromptVaultTests(unittest.TestCase):
         self.assertNotIn('class="card-overlay" aria-hidden="true"', gallery_html)
         self.assertNotIn('role="tablist"', gallery_html)
         self.assertNotIn('role="tab"', gallery_html)
+        self.assertNotIn('role="banner"', gallery_html)
+        self.assertNotIn('role="main"', gallery_html)
+        self.assertNotIn('role="contentinfo"', gallery_html)
+        self.assertNotIn("Live Search Bar", gallery_html)
+        self.assertNotIn('aria-label="Add new prompt"', gallery_html)
+        self.assertNotIn('aria-label="PromptVault Home"', gallery_html)
+        self.assertNotIn('aria-label="Sort by newest first"', gallery_html)
+        self.assertIn('id="navToggle"', gallery_html)
+        self.assertIn('aria-expanded="false"', gallery_html)
+        self.assertIn('aria-controls="mainNav"', gallery_html)
+        self.assertIn('data-placeholder-mobile="Search prompts..."', gallery_html)
         self.assertIn('aria-current="true"', gallery_html)
+
+        repo_dir = Path(__file__).resolve().parent
+        main_js = (repo_dir / "static" / "js" / "main.js").read_text(encoding="utf-8")
+        gallery_js = (repo_dir / "static" / "js" / "gallery.js").read_text(encoding="utf-8")
+        demo_js = (repo_dir / "static" / "js" / "demo.js").read_text(encoding="utf-8")
+        self.assertIn("createModalController", main_js)
+        self.assertIn('event.key === "Tab"', main_js)
+        self.assertIn("createModalController", gallery_js)
+        self.assertIn("createModalController", demo_js)
+        self.assertNotIn(".modal-overlay.active", main_js)
 
         static_dir = Path(__file__).resolve().parent / "static"
         with Image.open(static_dir / "og-card.png") as og_img:
@@ -815,6 +847,13 @@ class PromptVaultTests(unittest.TestCase):
         self.assertEqual(len(re.findall(r"<h1\b", demo_html)), 1)
         self.assertIn("<noscript>", demo_html)
         self.assertNotIn("onclick=", demo_html)
+        self.assertNotIn('role="banner"', demo_html)
+        self.assertNotIn('role="main"', demo_html)
+        self.assertNotIn('role="contentinfo"', demo_html)
+        self.assertNotIn('role="banner"', err_html)
+        self.assertNotIn('role="main"', err_html)
+        self.assertNotIn('role="contentinfo"', err_html)
+        self.assertIn('id="navToggle"', demo_html)
         self.assertIn("og-card.png", demo_html)
         self.assertIn("isSafeImageDataUrl", demo_js)
         self.assertIn("&quot;", demo_js)

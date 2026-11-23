@@ -28,7 +28,6 @@
 {% block content %}
 <h1 class="sr-only">PromptVault Gallery</h1>
 
-<!-- Vault Statistics Overview -->
 <section class="metrics-banner" aria-label="Vault Statistics">
     <div class="metric-pill">
         <i class="fas fa-layer-group" aria-hidden="true"></i>
@@ -44,9 +43,7 @@
     </div>
 </section>
 
-<!-- Toolbar: Search + Filters + Sorting -->
 <section class="toolbar" aria-label="Gallery Controls">
-    <!-- Live Search Bar -->
     <form action="{{ url_for('index') }}" method="get" class="search-form" role="search" aria-label="Search prompt library">
         <div class="search-box">
             <i class="fas fa-search search-icon" aria-hidden="true"></i>
@@ -55,6 +52,8 @@
                    id="searchInput"
                    dir="auto"
                    placeholder="Search prompts or categories... (Press '/' to search)"
+                   data-placeholder-desktop="Search prompts or categories... (Press '/' to search)"
+                   data-placeholder-mobile="Search prompts..."
                    value="{{ q }}"
                    autocomplete="off"
                    aria-label="Search prompts and categories">
@@ -108,22 +107,21 @@
             </ul>
         </nav>
 
-        <div class="sort-group" aria-label="Sort Options">
+        <div class="sort-group" role="group" aria-label="Sort order">
             <a href="{{ url_for('index', sort='newest', category=selected_cat, favorites=show_fav, q=q) }}"
                class="sort-btn {% if sort == 'newest' %}active{% endif %}"
-               aria-label="Sort by newest first">
+               {% if sort == 'newest' %}aria-current="true"{% endif %}>
                 <i class="fas fa-arrow-down" aria-hidden="true"></i> Newest
             </a>
             <a href="{{ url_for('index', sort='oldest', category=selected_cat, favorites=show_fav, q=q) }}"
                class="sort-btn {% if sort == 'oldest' %}active{% endif %}"
-               aria-label="Sort by oldest first">
+               {% if sort == 'oldest' %}aria-current="true"{% endif %}>
                 <i class="fas fa-arrow-up" aria-hidden="true"></i> Oldest
             </a>
         </div>
     </div>
 </section>
 
-<!-- Gallery Grid -->
 {% if prompts %}
 <div class="gallery" id="galleryGrid">
     {% for p in prompts %}
@@ -295,7 +293,6 @@
 <script type="application/json" id="promptDataset">{{ prompt_items | tojson }}</script>
 
 {% else %}
-<!-- Zero-State Feedback -->
 <div class="empty-state" role="status">
     <div class="empty-icon"><i class="fas fa-images" aria-hidden="true"></i></div>
     <h2>No prompts found</h2>
