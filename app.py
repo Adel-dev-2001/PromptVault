@@ -5,6 +5,7 @@ import os
 import re
 import secrets
 import sqlite3
+import unicodedata
 from urllib.parse import unquote, urlsplit
 
 from cs50 import SQL
@@ -41,7 +42,11 @@ EXPECTED_IMAGE_FORMATS = {
 }
 MAX_IMAGE_PIXELS = 20_000_000
 MAX_CONTENT_LENGTH = 10 * 1024 * 1024
-CATEGORY_PATTERN = re.compile(r"\A[\w \-]{1,30}\Z")
+ALLOWED_JOINERS = {"\u200c", "\u200d"}
+CATEGORY_ERROR_MSG = (
+    "Category must be 1-30 characters using letters, combining marks, numbers, "
+    "spaces, hyphens, underscores, or joiners."
+)
 KNOWN_PLACEHOLDER_SECRETS = {
     "change-this-to-a-secure-random-32-byte-hex-string",
     "replace_with_a_secure_production_secret_key_32_bytes",
@@ -159,9 +164,33 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def _is_allowed_category_char(ch: str) -> bool:
+    if ch in {" ", "-", "_"} or ch in ALLOWED_JOINERS:
+        return True
+    return unicodedata.category(ch)[0] in {"L", "M", "N"}
+
+
+def normalize_category(raw: str) -> str:
+    """NFC-normalize a category, collapse runs of spaces, and title-case."""
+    if not isinstance(raw, str):
+        return ""
+    # Only strip/collapse ASCII spaces so control chars like \n or \t remain to be rejected.
+    normalized = unicodedata.normalize("NFC", raw)
+    collapsed = re.sub(r" +", " ", normalized.strip(" "))
+    return collapsed.title()
+
+
 def valid_category(name: str) -> bool:
-    """Return True if name is 1-30 Unicode word chars, spaces, hyphens, or underscores."""
-    return isinstance(name, str) and bool(name.strip()) and bool(CATEGORY_PATTERN.fullmatch(name))
+    """Return True if name is 1-30 chars of Unicode L*/M*/N*, space, -, _, or ZW(N)J."""
+    if not isinstance(name, str):
+        return False
+    normalized = unicodedata.normalize("NFC", name)
+    collapsed = re.sub(r" +", " ", normalized.strip(" "))
+    if not collapsed or len(collapsed) > 30:
+        return False
+    if not all(_is_allowed_category_char(ch) for ch in collapsed):
+        return False
+    return any(unicodedata.category(ch)[0] in {"L", "N"} for ch in collapsed)
 
 
 def resolve_upload_path(relative_path: str):
@@ -362,17 +391,14 @@ def add():
     if request.method == "POST":
         file = request.files.get("image_file")
         prompt = request.form.get("prompt_text", "").strip()
-        cat = request.form.get("category", "").strip(" ").title()
+        cat = normalize_category(request.form.get("category", ""))
 
         if not prompt or not cat:
             flash("Please fill in all fields.", "error")
             return render_template("add.html"), 400
 
         if not valid_category(cat):
-            flash(
-                "Category can only contain letters, numbers, spaces, - and _ (max 30 characters).",
-                "error",
-            )
+            flash(CATEGORY_ERROR_MSG, "error")
             return render_template("add.html"), 400
 
         if not file or file.filename == "":
@@ -443,17 +469,14 @@ def edit(id: int):
 
     if request.method == "POST":
         new_prompt = request.form.get("prompt_text", "").strip()
-        new_cat = request.form.get("category", "").strip(" ").title()
+        new_cat = normalize_category(request.form.get("category", ""))
 
         if not new_prompt or not new_cat:
             flash("Please fill in all fields.", "error")
             return render_template("edit.html", item=prompt_data), 400
 
         if not valid_category(new_cat):
-            flash(
-                "Category can only contain letters, numbers, spaces, - and _ (max 30 characters).",
-                "error",
-            )
+            flash(CATEGORY_ERROR_MSG, "error")
             return render_template("edit.html", item=prompt_data), 400
 
         image_path = prompt_data["image_path"]

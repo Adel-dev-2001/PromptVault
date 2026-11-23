@@ -5,7 +5,10 @@
     const MAX_FILE_BYTES = 10 * 1024 * 1024;
     const MAX_IMAGE_PIXELS = 20000000;
     const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
-    const CATEGORY_REGEX = /^[\p{L}\p{Nd}_ \-]{1,30}$/u;
+    const CATEGORY_REGEX = /^[\p{L}\p{M}\p{N}_ \-\u200C\u200D]{1,30}$/u;
+    const CATEGORY_HAS_ALNUM = /[\p{L}\p{N}]/u;
+    const CATEGORY_ERROR_MSG =
+        "Category must be 1-30 characters using letters, combining marks, numbers, spaces, hyphens, underscores, or joiners.";
 
     const state = {
         prompts: [],
@@ -76,12 +79,25 @@
     }
 
     function isValidCategory(name) {
-        return typeof name === "string" && name.trim().length > 0 && CATEGORY_REGEX.test(name);
+        if (typeof name !== "string") return false;
+        const collapsed = name
+            .normalize("NFC")
+            .replace(/^ +| +$/g, "")
+            .replace(/ +/g, " ");
+        return (
+            collapsed.length > 0 &&
+            collapsed.length <= 30 &&
+            CATEGORY_REGEX.test(collapsed) &&
+            CATEGORY_HAS_ALNUM.test(collapsed)
+        );
     }
 
     function normalizeAndValidateCategory(rawValue) {
-        const trimmed = String(rawValue || "").replace(/^ +| +$/g, "");
-        return toTitleCase(trimmed);
+        const collapsed = String(rawValue || "")
+            .normalize("NFC")
+            .replace(/^ +| +$/g, "")
+            .replace(/ +/g, " ");
+        return toTitleCase(collapsed);
     }
 
     function buildDownloadFilename(item) {
@@ -276,18 +292,18 @@
             "</div></div>" +
             '<div class="card-content">' +
             '<div class="card-meta-header">' +
-            '<span class="category-badge">' +
+            '<span class="category-badge" dir="auto">' +
             escapeHtml(p.category) +
             "</span>" +
             '<button type="button" class="btn-text-copy" title="Quick Copy" aria-label="Copy prompt" data-action="copy" data-id="' +
             p.id +
             '"><i class="fas fa-copy" aria-hidden="true"></i> Copy</button>' +
             "</div>" +
-            '<p class="prompt-text" title="' +
+            '<p class="prompt-text" dir="auto" title="' +
             escapeHtml(p.prompt_text) +
-            '">&quot;' +
+            '">' +
             escapeHtml(p.prompt_text) +
-            "&quot;</p>" +
+            "</p>" +
             '<div class="card-footer">' +
             '<span class="timestamp"><i class="fas fa-clock" aria-hidden="true"></i> ' +
             escapeHtml(dateOnly) +
@@ -406,10 +422,7 @@
             return null;
         }
         if (!isValidCategory(category)) {
-            showFlash(
-                "Category can only contain letters, numbers, spaces, - and _ (max 30 characters).",
-                "error"
-            );
+            showFlash(CATEGORY_ERROR_MSG, "error");
             return null;
         }
         return category;

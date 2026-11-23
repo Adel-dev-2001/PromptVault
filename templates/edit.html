@@ -27,7 +27,7 @@
                     </label>
                     <span id="charCounter" class="char-counter">{{ item.prompt_text | length }} chars</span>
                 </div>
-                <textarea name="prompt_text" id="prompt_text" rows="6" required
+                <textarea name="prompt_text" id="prompt_text" dir="auto" rows="6" required
                     aria-describedby="charCounter">{{ item.prompt_text }}</textarea>
             </div>
 
@@ -35,7 +35,7 @@
                 <label for="category">
                     <i class="fas fa-tag" aria-hidden="true"></i> Category
                 </label>
-                <input type="text" name="category" id="category" value="{{ item.category }}" maxlength="30" required>
+                <input type="text" name="category" id="category" dir="auto" value="{{ item.category }}" maxlength="30" required>
             </div>
 
             <div class="form-actions">

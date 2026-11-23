@@ -112,6 +112,7 @@
                         <i class="fas fa-search search-icon" aria-hidden="true"></i>
                         <input type="text"
                                id="searchInput"
+                               dir="auto"
                                placeholder="Search prompts or categories... (Press '/' to search)"
                                autocomplete="off"
                                aria-label="Search prompts and categories">
@@ -220,6 +221,7 @@
                             <span id="addCharCounter" class="char-counter">0 chars</span>
                         </div>
                         <textarea id="prompt_text"
+                                  dir="auto"
                                   rows="5"
                                   placeholder="Paste the prompt, negative prompts, or model parameters..."
                                   required
@@ -232,6 +234,7 @@
                         </label>
                         <input type="text"
                                id="category"
+                               dir="auto"
                                placeholder="e.g. Portrait, Cyberpunk, Landscape, Concept Art"
                                maxlength="30"
                                required>
@@ -280,6 +283,7 @@
                             <span id="editCharCounter" class="char-counter">0 chars</span>
                         </div>
                         <textarea id="edit_prompt_text"
+                                  dir="auto"
                                   rows="6"
                                   required
                                   aria-describedby="editCharCounter"></textarea>
@@ -291,6 +295,7 @@
                         </label>
                         <input type="text"
                                id="edit_category"
+                               dir="auto"
                                maxlength="30"
                                required>
                     </div>
@@ -371,10 +376,10 @@
                         <img id="modalImage" src="" alt="Selected artwork">
                     </div>
                     <div class="modal-info-col">
-                        <span id="modalCategory" class="category-badge"></span>
+                        <span id="modalCategory" class="category-badge" dir="auto"></span>
                         <h2 id="modalTitle" class="modal-heading">Prompt Specification</h2>
                         <div class="modal-prompt-box">
-                            <p id="modalPromptText"></p>
+                            <p id="modalPromptText" dir="auto"></p>
                         </div>
                         <div class="modal-details-meta">
                             <span id="modalDate" class="timestamp"><i class="fas fa-calendar-alt" aria-hidden="true"></i> <span id="modalDateText"></span></span>

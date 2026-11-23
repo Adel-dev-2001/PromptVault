@@ -45,6 +45,7 @@
             <input type="text"
                    name="q"
                    id="searchInput"
+                   dir="auto"
                    placeholder="Search prompts or categories... (Press '/' to search)"
                    value="{{ q }}"
                    autocomplete="off"
@@ -90,6 +91,7 @@
                     <li>
                         <a href="{{ url_for('index', category=cat.category, sort=sort, q=q) }}"
                            class="filter-chip {% if selected_cat == cat.category %}active{% endif %}"
+                           dir="auto"
                            {% if selected_cat == cat.category %}aria-current="true"{% endif %}>
                             {{ cat.category }}
                         </a>
@@ -183,7 +185,7 @@
 
         <div class="card-content">
             <div class="card-meta-header">
-                <span class="category-badge">{{ p.category }}</span>
+                <span class="category-badge" dir="auto">{{ p.category }}</span>
                 <button type="button"
                         class="btn-text-copy"
                         title="Quick Copy"
@@ -193,7 +195,7 @@
                     <i class="fas fa-copy" aria-hidden="true"></i> Copy
                 </button>
             </div>
-            <p class="prompt-text" title="{{ p.prompt_text }}">"{{ p.prompt_text }}"</p>
+            <p class="prompt-text" dir="auto" title="{{ p.prompt_text }}">{{ p.prompt_text }}</p>
             <div class="card-footer">
                 <span class="timestamp">
                     <i class="fas fa-clock" aria-hidden="true"></i> {{ p.timestamp[:10] }}
@@ -220,10 +222,10 @@
                 <img id="modalImage" src="" alt="Selected artwork">
             </div>
             <div class="modal-info-col">
-                <span id="modalCategory" class="category-badge"></span>
+                <span id="modalCategory" class="category-badge" dir="auto"></span>
                 <h2 id="modalTitle" class="modal-heading">Prompt Specification</h2>
                 <div class="modal-prompt-box">
-                    <p id="modalPromptText"></p>
+                    <p id="modalPromptText" dir="auto"></p>
                 </div>
                 <div class="modal-details-meta">
                     <span id="modalDate" class="timestamp"><i class="fas fa-calendar-alt" aria-hidden="true"></i> <span id="modalDateText"></span></span>

@@ -262,9 +262,12 @@ class PromptVaultTests(unittest.TestCase):
             "..",
             "foo.",
             "Example\n",
+            "tab\there",
             "foo\x00bar",
             "\u200f",
             "Arab\u200fic",
+            "\u200c",
+            "---",
             "   ",
         ]
         for category in invalid_categories:
@@ -275,15 +278,26 @@ class PromptVaultTests(unittest.TestCase):
                 self.assertEqual(self.module.db.execute("SELECT * FROM images"), [])
 
     def test_valid_unicode_and_spaced_categories_served(self):
-        for category in ["تصميم", "فن رقمي", "Sci-Fi_Art 1"]:
-            with self.subTest(category=category):
-                self.assertTrue(self.module.valid_category(category))
-                res = self.upload(filename=f"{category[:3]}.png", category=category)
+        cases = [
+            ("تصميم", "تصميم"),
+            ("فن رقمي", "فن رقمي"),
+            ("العَرَبِيَّة", "العَرَبِيَّة"),
+            ("می\u200cخواهم", "می\u200cخواهم"),
+            ("Cafe\u0301", "Café"),
+            ("  a   b  ", "A B"),
+            ("Sci-Fi_Art 1", "Sci-Fi_Art 1"),
+        ]
+        for raw_category, expected_stored in cases:
+            with self.subTest(category=raw_category):
+                self.assertTrue(self.module.valid_category(raw_category))
+                self.assertEqual(self.module.normalize_category(raw_category), expected_stored)
+                res = self.upload(filename="unicode.png", category=raw_category)
                 self.assertEqual(res.status_code, 302)
                 row = self.module.db.execute(
                     "SELECT * FROM images WHERE category = ? ORDER BY id DESC LIMIT 1",
-                    category.title(),
+                    expected_stored,
                 )[0]
+                self.assertEqual(row["category"], expected_stored)
                 self.assertNotIn("#", row["image_path"])
                 with self.module.app.test_request_context():
                     img_url = self.module.image_url(row)
@@ -291,6 +305,31 @@ class PromptVaultTests(unittest.TestCase):
                     self.assertEqual(img_res.status_code, 200)
                 with self.client.get("/download/" + row["image_path"]) as dl_res:
                     self.assertEqual(dl_res.status_code, 200)
+
+    def test_bidi_dir_auto_attributes_present(self):
+        self.upload(
+            category="العَرَبِيَّة",
+            prompt_text="صورة مستقبلية لمدينة في الصحراء — AI art",
+        )
+        row = self.module.db.execute("SELECT id FROM images")[0]
+
+        gallery_html = self.client.get("/").get_data(as_text=True)
+        self.assertIn('id="searchInput"', gallery_html)
+        self.assertRegex(gallery_html, r'<input[^>]+id="searchInput"[^>]+dir="auto"')
+        self.assertIn('<span class="category-badge" dir="auto">', gallery_html)
+        self.assertIn('<p class="prompt-text" dir="auto"', gallery_html)
+        self.assertIn(
+            '<span id="modalCategory" class="category-badge" dir="auto"></span>', gallery_html
+        )
+        self.assertIn('<p id="modalPromptText" dir="auto"></p>', gallery_html)
+
+        add_html = self.client.get("/add").get_data(as_text=True)
+        self.assertRegex(add_html, r'<textarea[^>]+id="prompt_text"[^>]+dir="auto"')
+        self.assertRegex(add_html, r'<input[^>]+id="category"[^>]+dir="auto"')
+
+        edit_html = self.client.get(f"/edit/{row['id']}").get_data(as_text=True)
+        self.assertRegex(edit_html, r'<textarea[^>]+id="prompt_text"[^>]+dir="auto"')
+        self.assertRegex(edit_html, r'<input[^>]+id="category"[^>]+dir="auto"')
 
     def test_favorite_filter_survives_sort(self):
         self.upload()
