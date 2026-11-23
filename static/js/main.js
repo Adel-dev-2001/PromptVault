@@ -146,13 +146,12 @@
             modalEl.classList.add("active");
             document.body.classList.add("modal-open");
             document.addEventListener("keydown", handleModalKeydown);
-            // Defer focus one frame so the visibility transition has made the dialog focusable.
-            window.requestAnimationFrame(function () {
-                const target = closeBtnEl || getFocusableElements()[0];
-                if (target && typeof target.focus === "function") {
-                    target.focus();
-                }
-            });
+            // Force layout so visibility: visible takes effect before moving focus into the dialog.
+            void modalEl.offsetWidth;
+            const target = closeBtnEl || getFocusableElements()[0];
+            if (target && typeof target.focus === "function") {
+                target.focus();
+            }
         }
 
         modalEl.addEventListener("click", function (event) {

@@ -270,7 +270,7 @@ nav {
     margin: 0 auto;
 }
 
-.search-box input {
+.search-box input[type="text"] {
     width: 100%;
     padding: 0.85rem 3rem 0.85rem 2.85rem;
     background: var(--glass);
@@ -282,7 +282,7 @@ nav {
     transition: var(--transition);
 }
 
-.search-box input:focus {
+.search-box input[type="text"]:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-glow), 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -292,6 +292,7 @@ nav {
 .search-icon {
     position: absolute;
     left: 1.1rem;
+    z-index: 1;
     color: var(--text-muted);
     font-size: 0.95rem;
     pointer-events: none;
@@ -722,12 +723,13 @@ a.page-num:hover {
     padding: 1.5rem;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.25s ease, visibility 0.25s ease;
+    transition: opacity 0.25s ease, visibility 0s linear 0.25s;
 }
 
 .modal-overlay.active {
     opacity: 1;
     visibility: visible;
+    transition: opacity 0.25s ease, visibility 0s linear 0s;
 }
 
 .modal-card {
@@ -762,7 +764,8 @@ a.page-num:hover {
     display: grid;
     place-items: center;
     font-size: 1rem;
-    transition: var(--transition);
+    /* Avoid transition: all so inherited visibility changes do not block modal focus(). */
+    transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
     z-index: 10;
 }
 
@@ -911,7 +914,7 @@ a.page-num:hover {
     text-decoration: none;
     border: none;
     cursor: pointer;
-    transition: var(--transition);
+    transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
     font-family: 'DM Sans', sans-serif;
 }
 
