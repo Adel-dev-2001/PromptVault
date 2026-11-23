@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint:
-    name: Ruff Lint and Format
+    name: Ruff Lint and Dependency Audit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -30,6 +30,9 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
+
+      - name: Audit runtime dependencies
+        run: pip-audit -r requirements.txt
 
   test:
     name: Automated Unit Tests

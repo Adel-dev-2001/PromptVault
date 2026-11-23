@@ -893,10 +893,17 @@ class PromptVaultTests(unittest.TestCase):
 
         dev_reqs = (repo_dir / "requirements-dev.txt").read_text(encoding="utf-8")
         self.assertRegex(dev_reqs, r"(?m)^ruff==\d+\.\d+\.\d+$")
+        self.assertRegex(dev_reqs, r"(?m)^pip-audit==\d+\.\d+\.\d+$")
         ci_yml = (repo_dir / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         self.assertIn("pip install -r requirements-dev.txt", ci_yml)
+        self.assertIn("pip-audit -r requirements.txt", ci_yml)
         self.assertIn("docker run", ci_yml)
         self.assertIn("curl -fsS http://127.0.0.1:5000/", ci_yml)
+
+        dependabot_yml = (repo_dir / ".github" / "dependabot.yml").read_text(encoding="utf-8")
+        self.assertIn('package-ecosystem: "pip"', dependabot_yml)
+        self.assertIn('package-ecosystem: "github-actions"', dependabot_yml)
+        self.assertIn('interval: "weekly"', dependabot_yml)
 
     def test_schema_json_ld_present(self):
         res = self.client.get("/")
