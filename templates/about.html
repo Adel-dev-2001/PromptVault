@@ -18,7 +18,7 @@
                 <p>
                     <strong>PromptVault</strong> was created by <strong>Adel Mohamed</strong> as a CS50x Final Project.
                     It stores image files alongside the exact prompt text, negative prompts, and settings used to generate them,
-                    organized into categories with search, favorites filtering, and clipboard copy.
+                    organized into categories with pagination, search, favorites filtering, and clipboard copy.
                 </p>
                 <p>
                     PromptVault intentionally does not generate images, call external model APIs, or provide multi-user accounts.
@@ -30,7 +30,7 @@
                 <div class="about-features">
                     <div class="feature-item">
                         <i class="fas fa-search" aria-hidden="true"></i>
-                        <span>Form search via ?q= across prompts and categories</span>
+                        <span>Paginated gallery (24/page) with ?q= search and filters</span>
                     </div>
                     <div class="feature-item">
                         <i class="fas fa-shield-alt" aria-hidden="true"></i>
@@ -38,7 +38,7 @@
                     </div>
                     <div class="feature-item">
                         <i class="fas fa-copy" aria-hidden="true"></i>
-                        <span>Clipboard copy from gallery cards and modal view</span>
+                        <span>Clipboard copy and focus-trapped detail modal</span>
                     </div>
                     <div class="feature-item">
                         <i class="fas fa-sitemap" aria-hidden="true"></i>
@@ -50,11 +50,11 @@
             <section class="about-section">
                 <h2><i class="fas fa-lock" aria-hidden="true"></i> Security Model</h2>
                 <ul class="specs-list">
-                    <li><strong>Single-user default:</strong> PromptVault runs locally without user accounts; setting <code>APP_PASSWORD</code> enables HTTP Basic auth on state-changing <code>POST</code> requests.</li>
+                    <li><strong>Single-user default:</strong> PromptVault runs locally without user accounts; setting <code>APP_PASSWORD</code> requires HTTP Basic auth (username ignored) on all routes except <code>/robots.txt</code> and <code>/static/</code>.</li>
                     <li><strong>CSRF protection:</strong> All mutating endpoints check signed <code>Flask-WTF</code> CSRF tokens.</li>
                     <li><strong>Upload bounds:</strong> Requests are capped at 10 MB; Pillow verifies image format against extension and checks every frame against a 20-megapixel ceiling.</li>
-                    <li><strong>Path checks:</strong> Category names match Unicode letters, digits, spaces, <code>-</code>, and <code>_</code> (1-30 chars), and file access checks <code>os.path.commonpath</code> inside <code>static/uploads/</code>.</li>
-                    <li><strong>CSP and headers:</strong> Sends <code>Content-Security-Policy</code> with <code>script-src 'self'</code>, <code>X-Content-Type-Options: nosniff</code>, <code>X-Frame-Options: SAMEORIGIN</code>, and HSTS over HTTPS.</li>
+                    <li><strong>Path checks:</strong> Category names are NFC-normalized and limited to 1-30 chars of Unicode letters, combining marks, digits, space, <code>-</code>, <code>_</code>, ZWNJ, and ZWJ; file resolution checks <code>os.path.commonpath</code> inside <code>static/uploads/</code>.</li>
+                    <li><strong>CSP and caching:</strong> Sends <code>Content-Security-Policy</code> with <code>script-src 'self'</code> and <code>img-src 'self' data: blob:</code>, <code>Cache-Control: no-store</code> on HTML form pages, and HSTS over HTTPS.</li>
                 </ul>
             </section>
 
@@ -74,7 +74,7 @@
             <section class="about-section academic-note-box">
                 <h2><i class="fas fa-circle-info" aria-hidden="true"></i> Known Limitations</h2>
                 <p class="academic-text">
-                    Do not expose this server directly to the public internet without <code>APP_PASSWORD</code> and a TLS reverse proxy (<code>TRUST_PROXY=1</code>). No rate limiting or per-user authorization is built in, and GET routes remain readable when served.
+                    Do not expose this server directly to the public internet without <code>APP_PASSWORD</code> and a TLS reverse proxy (<code>TRUST_PROXY=1</code>). No rate limiting or multi-user authorization is built in, and direct <code>/static/uploads/</code> paths stay exempt with <code>/static/</code>.
                 </p>
             </section>
         </div>
