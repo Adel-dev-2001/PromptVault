@@ -706,6 +706,22 @@ class PromptVaultTests(unittest.TestCase):
             self.assertEqual(unversioned.status_code, 200)
             self.assertEqual(unversioned.headers.get("Cache-Control"), "public, max-age=86400")
 
+        uploaded = self.module.db.execute("SELECT image_path FROM images WHERE id = ?", row["id"])[
+            0
+        ]
+        upload_url = f"/static/uploads/{uploaded['image_path']}"
+        with self.client.get(upload_url) as upload_res:
+            self.assertEqual(upload_res.status_code, 200)
+            self.assertEqual(
+                upload_res.headers.get("Cache-Control"),
+                "public, max-age=3600, must-revalidate",
+            )
+            etag = upload_res.headers.get("ETag")
+            self.assertTrue(etag)
+
+        with self.client.get(upload_url, headers={"If-None-Match": etag}) as revalidated:
+            self.assertEqual(revalidated.status_code, 304)
+
     def test_prompt_xss_attribute_injection_prevented(self):
         payload = '" onfocus=alert(1) x=" <script>evil()</script> & \u0639\u0631\u0628\u064a'
         res = self.upload(prompt_text=payload, category="Examples")
@@ -1006,6 +1022,15 @@ class PromptVaultTests(unittest.TestCase):
             self.assertEqual(self.client.get("/robots.txt").status_code, 200)
             with self.client.get("/static/styles.css") as css_res:
                 self.assertEqual(css_res.status_code, 200)
+
+            upload_url = "/static/uploads/" + existing["image_path"]
+            with self.client.get(upload_url) as upload_unauth:
+                self.assertEqual(upload_unauth.status_code, 401)
+                self.assertIn("Basic", upload_unauth.headers.get("WWW-Authenticate", ""))
+            with self.client.get(upload_url, headers=bad_headers) as upload_bad:
+                self.assertEqual(upload_bad.status_code, 401)
+            with self.client.get(upload_url, headers=valid_headers) as upload_ok:
+                self.assertEqual(upload_ok.status_code, 200)
 
             protected_gets = [
                 "/",

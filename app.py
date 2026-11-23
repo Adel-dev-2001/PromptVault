@@ -126,9 +126,19 @@ if os.environ.get("TRUST_PROXY") == "1":
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 
+def _is_upload_static_request() -> bool:
+    """Return True if the request targets /static/uploads/."""
+    if request.path == "/static/uploads" or request.path.startswith("/static/uploads/"):
+        return True
+    if request.endpoint == "static":
+        filename = (request.view_args or {}).get("filename", "").lstrip("/")
+        return filename == "uploads" or filename.startswith("uploads/")
+    return False
+
+
 @app.before_request
 def require_app_password():
-    """Require Basic auth on all routes except /robots.txt and /static/ when APP_PASSWORD is set.
+    """Require Basic auth on all routes except /robots.txt and non-upload /static/ assets.
 
     Only the Basic auth password is verified; the username is ignored.
     """
@@ -137,11 +147,11 @@ def require_app_password():
         expected = os.environ.get("APP_PASSWORD", "")
     if not expected:
         return None
+    if request.endpoint == "robots_txt" or request.path == "/robots.txt":
+        return None
     if (
-        request.endpoint in {"robots_txt", "static"}
-        or request.path == "/robots.txt"
-        or request.path.startswith("/static/")
-    ):
+        request.endpoint == "static" or request.path.startswith("/static/")
+    ) and not _is_upload_static_request():
         return None
 
     auth = request.authorization
@@ -347,7 +357,9 @@ def security_headers(response):
     response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
 
     if request.endpoint == "static" and response.status_code == 200:
-        if "v" in request.args:
+        if _is_upload_static_request():
+            response.headers["Cache-Control"] = "public, max-age=3600, must-revalidate"
+        elif "v" in request.args:
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         else:
             response.headers["Cache-Control"] = "public, max-age=86400"
