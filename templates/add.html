@@ -13,7 +13,7 @@
             <p>Upload an image file and save the prompt text used to generate it.</p>
         </div>
 
-        <form action="/add" method="post" enctype="multipart/form-data" id="addPromptForm">
+        <form action="{{ url_for('add') }}" method="post" enctype="multipart/form-data" id="addPromptForm">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="input-group">
@@ -73,7 +73,7 @@
             </div>
 
             <div class="form-actions">
-                <a href="/" class="btn btn-ghost"><i class="fas fa-arrow-left" aria-hidden="true"></i> Cancel</a>
+                <a href="{{ url_for('index') }}" class="btn btn-ghost"><i class="fas fa-arrow-left" aria-hidden="true"></i> Cancel</a>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-vault" aria-hidden="true"></i> Save to Vault
                 </button>
@@ -84,5 +84,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="/static/js/form.js" defer></script>
+<script src="{{ url_for('static', filename='js/form.js') }}" defer></script>
 {% endblock %}

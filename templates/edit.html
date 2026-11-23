@@ -13,12 +13,11 @@
             <p>Update the prompt text or category for this entry.</p>
         </div>
 
-        <!-- Current Artwork Preview -->
         <div class="edit-preview">
-            <img src="{{ item.image_path }}" alt="Preview of current artwork: {{ item.prompt_text | truncate(50) }}">
+            <img src="{{ image_url(item) }}" alt="Preview of current artwork: {{ item.prompt_text | truncate(50) }}">
         </div>
 
-        <form action="/edit/{{ item.id }}" method="post">
+        <form action="{{ url_for('edit', id=item.id) }}" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="input-group">
@@ -40,7 +39,7 @@
             </div>
 
             <div class="form-actions">
-                <a href="/" class="btn btn-ghost"><i class="fas fa-arrow-left" aria-hidden="true"></i> Cancel</a>
+                <a href="{{ url_for('index') }}" class="btn btn-ghost"><i class="fas fa-arrow-left" aria-hidden="true"></i> Cancel</a>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-check" aria-hidden="true"></i> Save Changes
                 </button>
@@ -51,5 +50,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="/static/js/form.js" defer></script>
+<script src="{{ url_for('static', filename='js/form.js') }}" defer></script>
 {% endblock %}

@@ -53,6 +53,12 @@ class PromptVaultTests(unittest.TestCase):
     def setUp(self):
         self.client = self.module.app.test_client()
         self.module.db.execute("DELETE FROM images")
+        upload_root = Path(self.module.app.config["UPLOAD_FOLDER"])
+        for child in upload_root.iterdir():
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
 
     def csrf_token(self):
         page = self.client.get("/add").get_data(as_text=True)
@@ -94,11 +100,75 @@ class PromptVaultTests(unittest.TestCase):
     def test_valid_image_upload_and_download(self):
         self.assertEqual(self.upload().status_code, 302)
         row = self.module.db.execute("SELECT * FROM images")[0]
-        with self.client.get(row["image_path"]) as static_res:
+        self.assertEqual(row["image_path"], "Examples/example.png")
+        with self.module.app.test_request_context():
+            public_url = self.module.image_url(row)
+        with self.client.get(public_url) as static_res:
             self.assertEqual(static_res.status_code, 200)
-        download_path = row["image_path"].replace("/static/uploads/", "")
-        with self.client.get("/download/" + download_path) as response:
+        with self.client.get("/download/" + row["image_path"]) as response:
             self.assertEqual(response.status_code, 200)
+
+    def test_legacy_image_path_migration(self):
+        legacy_rows = [
+            ("/static/uploads/Art%20Style/old.png", "Art Style/old.png"),
+            ("/pv/static/uploads/%D8%AA%D8%B5%D9%85%D9%8A%D9%85/pic.png", "تصميم/pic.png"),
+            ("static/uploads/Simple/a.png", "Simple/a.png"),
+        ]
+        for raw_path, _ in legacy_rows:
+            self.module.db.execute(
+                "INSERT INTO images (image_path, prompt_text, category) VALUES (?, ?, ?)",
+                raw_path,
+                "Legacy prompt",
+                "Legacy",
+            )
+        self.module.migrate_legacy_image_paths()
+        migrated = [
+            row["image_path"]
+            for row in self.module.db.execute("SELECT image_path FROM images ORDER BY id")
+        ]
+        self.assertEqual(migrated, [expected for _, expected in legacy_rows])
+
+    def test_script_name_prefix_add_and_delete(self):
+        base_url = "http://localhost/pv"
+        add_page = self.client.get("/add", base_url=base_url).get_data(as_text=True)
+        token = re.search(r'name="csrf_token" value="([^"]+)"', add_page).group(1)
+
+        stream = io.BytesIO()
+        Image.new("RGB", (4, 4), "red").save(stream, format="PNG")
+        res = self.client.post(
+            "/add",
+            data={
+                "csrf_token": token,
+                "image_file": (io.BytesIO(stream.getvalue()), "prefixed.png"),
+                "prompt_text": "Subpath test",
+                "category": "Prefixed",
+            },
+            content_type="multipart/form-data",
+            base_url=base_url,
+        )
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(res.headers["Location"], "/pv/")
+
+        row = self.module.db.execute("SELECT * FROM images")[0]
+        self.assertEqual(row["image_path"], "Prefixed/prefixed.png")
+        saved_file = Path(self.module.resolve_upload_path(row["image_path"]))
+        self.assertTrue(saved_file.exists())
+
+        gallery_html = self.client.get("/", base_url=base_url).get_data(as_text=True)
+        self.assertIn('src="/pv/static/uploads/Prefixed/prefixed.png"', gallery_html)
+
+        with self.client.get("/static/uploads/Prefixed/prefixed.png", base_url=base_url) as img_res:
+            self.assertEqual(img_res.status_code, 200)
+
+        del_res = self.client.post(
+            f"/delete/{row['id']}",
+            data={"csrf_token": token},
+            base_url=base_url,
+        )
+        self.assertEqual(del_res.status_code, 302)
+        self.assertEqual(del_res.headers["Location"], "/pv/")
+        self.assertEqual(self.module.db.execute("SELECT * FROM images"), [])
+        self.assertFalse(saved_file.exists())
 
     def test_default_paths_work_from_different_cwd(self):
         repo_dir = Path(__file__).resolve().parent
@@ -160,7 +230,9 @@ class PromptVaultTests(unittest.TestCase):
                 self.assertEqual(upload_res.status_code, 302)
 
                 row = mod.db.execute("SELECT * FROM images")[0]
-                with client.get(row["image_path"]) as img_res:
+                with mod.app.test_request_context():
+                    img_url = mod.image_url(row)
+                with client.get(img_url) as img_res:
                     self.assertEqual(img_res.status_code, 200)
                     self.assertEqual(img_res.data, png_bytes)
             finally:
@@ -213,10 +285,11 @@ class PromptVaultTests(unittest.TestCase):
                     category.title(),
                 )[0]
                 self.assertNotIn("#", row["image_path"])
-                with self.client.get(row["image_path"]) as img_res:
+                with self.module.app.test_request_context():
+                    img_url = self.module.image_url(row)
+                with self.client.get(img_url) as img_res:
                     self.assertEqual(img_res.status_code, 200)
-                download_path = row["image_path"].removeprefix("/static/uploads/")
-                with self.client.get("/download/" + download_path) as dl_res:
+                with self.client.get("/download/" + row["image_path"]) as dl_res:
                     self.assertEqual(dl_res.status_code, 200)
 
     def test_favorite_filter_survives_sort(self):
@@ -232,7 +305,7 @@ class PromptVaultTests(unittest.TestCase):
     def test_edit_and_delete(self):
         self.upload()
         row = self.module.db.execute("SELECT * FROM images")[0]
-        image_path = Path(row["image_path"].lstrip("/"))
+        image_path = Path(self.module.resolve_upload_path(row["image_path"]))
         self.assertTrue(image_path.exists())
         response = self.client.post(
             f"/edit/{row['id']}",
@@ -248,7 +321,7 @@ class PromptVaultTests(unittest.TestCase):
         updated_row = self.module.db.execute(
             "SELECT image_path FROM images WHERE id = ?", row["id"]
         )[0]
-        moved_path = Path(updated_row["image_path"].lstrip("/"))
+        moved_path = Path(self.module.resolve_upload_path(updated_row["image_path"]))
         self.assertTrue(moved_path.exists())
         self.client.post(f"/delete/{row['id']}", data={"csrf_token": self.csrf_token()})
         self.assertEqual(self.module.db.execute("SELECT * FROM images"), [])
@@ -258,7 +331,7 @@ class PromptVaultTests(unittest.TestCase):
     def test_edit_category_moves_image_file(self):
         self.assertEqual(self.upload(category="Examples").status_code, 302)
         row = self.module.db.execute("SELECT * FROM images")[0]
-        old_path = Path(row["image_path"].lstrip("/"))
+        old_path = Path(self.module.resolve_upload_path(row["image_path"]))
         self.assertTrue(old_path.exists())
 
         response = self.client.post(
@@ -272,7 +345,7 @@ class PromptVaultTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
 
         updated = self.module.db.execute("SELECT * FROM images WHERE id = ?", row["id"])[0]
-        new_path = Path(updated["image_path"].lstrip("/"))
+        new_path = Path(self.module.resolve_upload_path(updated["image_path"]))
         self.assertEqual(updated["category"], "Revised")
         self.assertNotEqual(updated["image_path"], row["image_path"])
         self.assertTrue(new_path.exists())
@@ -291,8 +364,18 @@ class PromptVaultTests(unittest.TestCase):
                 },
             )
             self.assertEqual(response.status_code, 413)
+            body = response.get_data(as_text=True)
+            self.assertIn("413 - Upload Too Large", body)
+            self.assertIn("<title>Upload Too Large (413) | PromptVault</title>", body)
         finally:
             self.module.app.config["MAX_CONTENT_LENGTH"] = original_limit
+
+    def test_method_not_allowed_renders_405_template(self):
+        res = self.client.get("/delete/1")
+        self.assertEqual(res.status_code, 405)
+        body = res.get_data(as_text=True)
+        self.assertIn("405 - Method Not Allowed", body)
+        self.assertIn("<title>Method Not Allowed (405) | PromptVault</title>", body)
 
     def test_download_traversal_rejected(self):
         traversal_paths = [
@@ -388,7 +471,7 @@ class PromptVaultTests(unittest.TestCase):
     def test_edit_missing_file_refuses_category_change(self):
         self.assertEqual(self.upload(category="Examples").status_code, 302)
         row = self.module.db.execute("SELECT * FROM images")[0]
-        file_path = Path(self.module.upload_path_from_url(row["image_path"]))
+        file_path = Path(self.module.resolve_upload_path(row["image_path"]))
         file_path.unlink()
 
         res = self.client.post(

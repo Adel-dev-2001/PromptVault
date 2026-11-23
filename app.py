@@ -130,6 +130,30 @@ db.execute("CREATE INDEX IF NOT EXISTS idx_images_timestamp ON images (timestamp
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
+def normalize_legacy_image_path(raw_path: str) -> str:
+    """Convert legacy full/prefixed upload URLs to relative 'Category/file.ext' paths."""
+    if not isinstance(raw_path, str):
+        return ""
+    marker = "/static/uploads/"
+    if marker in raw_path:
+        return unquote(raw_path.split(marker, 1)[1]).lstrip("/")
+    if raw_path.startswith("static/uploads/"):
+        return unquote(raw_path.removeprefix("static/uploads/")).lstrip("/")
+    return raw_path.lstrip("/")
+
+
+def migrate_legacy_image_paths() -> None:
+    """Rewrite any pre-existing URL-form image_path rows to relative upload paths."""
+    rows = db.execute("SELECT id, image_path FROM images")
+    for row in rows:
+        normalized = normalize_legacy_image_path(row["image_path"])
+        if normalized and normalized != row["image_path"]:
+            db.execute("UPDATE images SET image_path = ? WHERE id = ?", normalized, row["id"])
+
+
+migrate_legacy_image_paths()
+
+
 def allowed_file(filename: str) -> bool:
     """Return True if filename has an allowed image extension."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -140,14 +164,13 @@ def valid_category(name: str) -> bool:
     return isinstance(name, str) and bool(name.strip()) and bool(CATEGORY_PATTERN.fullmatch(name))
 
 
-def upload_path_from_url(image_path: str):
-    """Resolve a /static/uploads URL inside UPLOAD_FOLDER, or return None if invalid."""
-    prefix = "/static/uploads/"
-    if not isinstance(image_path, str) or not image_path.startswith(prefix):
+def resolve_upload_path(relative_path: str):
+    """Resolve a relative 'Category/file.ext' path inside UPLOAD_FOLDER, or return None."""
+    if not isinstance(relative_path, str) or not relative_path or relative_path.startswith("/"):
         return None
-
-    relative_path = unquote(image_path[len(prefix) :])
     if "\\" in relative_path or "\x00" in relative_path:
+        return None
+    if any(part == ".." for part in relative_path.split("/")):
         return None
     upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
     full_path = os.path.abspath(os.path.join(upload_root, relative_path))
@@ -157,6 +180,13 @@ def upload_path_from_url(image_path: str):
     except ValueError:
         return None
     return full_path
+
+
+@app.template_global("image_url")
+def image_url(item) -> str:
+    """Build the public static URL for an entry's relative upload path."""
+    rel = item["image_path"] if isinstance(item, dict) else str(item)
+    return url_for("static", filename=f"uploads/{rel}")
 
 
 def validate_uploaded_image(file_storage, extension: str) -> None:
@@ -243,19 +273,19 @@ def bad_request_error(error):
     return render_template("errors/400.html", error=error), 400
 
 
-@app.errorhandler(403)
-def forbidden_error(error):
-    return render_template("errors/403.html", error=error), 403
-
-
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template("errors/404.html", error=error), 404
 
 
+@app.errorhandler(405)
+def method_not_allowed_error(error):
+    return render_template("errors/405.html", error=error), 405
+
+
 @app.errorhandler(413)
 def upload_too_large(error):
-    return "Upload too large. The complete request must not exceed 10 MB.", 413
+    return render_template("errors/413.html", error=error), 413
 
 
 @app.errorhandler(500)
@@ -305,14 +335,11 @@ def index():
     prompt_items = [
         {
             "id": p["id"],
-            "imagePath": p["image_path"],
+            "imagePath": image_url(p),
             "promptText": p["prompt_text"],
             "category": p["category"],
             "date": str(p["timestamp"])[:10],
-            "downloadUrl": url_for(
-                "download_file",
-                filename=unquote(p["image_path"].removeprefix("/static/uploads/")),
-            ),
+            "downloadUrl": url_for("download_file", filename=p["image_path"]),
         }
         for p in prompts
     ]
@@ -384,7 +411,7 @@ def add():
 
         file_destination = os.path.join(cat_folder, filename)
         file.save(file_destination)
-        image_path = url_for("static", filename=f"uploads/{cat}/{filename}")
+        image_path = f"{cat}/{filename}"
 
         try:
             db.execute(
@@ -430,7 +457,7 @@ def edit(id: int):
             return render_template("edit.html", item=prompt_data), 400
 
         image_path = prompt_data["image_path"]
-        source_path = upload_path_from_url(image_path)
+        source_path = resolve_upload_path(image_path)
         upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
 
         if new_cat != prompt_data["category"]:
@@ -464,8 +491,7 @@ def edit(id: int):
                     flash("Could not move the image. Your changes were not saved.", "error")
                     return render_template("edit.html", item=prompt_data), 500
 
-                relative_target = os.path.relpath(target_path, upload_root).replace(os.sep, "/")
-                image_path = url_for("static", filename=f"uploads/{relative_target}")
+                image_path = os.path.relpath(target_path, upload_root).replace(os.sep, "/")
                 prune_empty_folder(os.path.dirname(source_path))
 
         db.execute(
@@ -496,7 +522,7 @@ def delete(id: int):
     if not data:
         abort(404)
 
-    path = upload_path_from_url(data[0]["image_path"])
+    path = resolve_upload_path(data[0]["image_path"])
     if path and os.path.isfile(path):
         try:
             os.remove(path)
@@ -516,14 +542,13 @@ def about():
 
 @app.route("/download/<path:filename>")
 def download_file(filename: str):
-    decoded = unquote(filename)
-    if "\\" in filename or "\\" in decoded or "\x00" in filename or "\x00" in decoded:
+    if "\\" in filename or "\x00" in filename or "%" in filename:
         abort(404)
-    if any(part == ".." for part in decoded.split("/")):
+    if any(part == ".." for part in filename.split("/")):
         abort(404)
 
     upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
-    full_path = os.path.abspath(os.path.join(upload_root, decoded))
+    full_path = os.path.abspath(os.path.join(upload_root, filename))
     try:
         inside_uploads = os.path.commonpath([upload_root, full_path]) == upload_root
     except ValueError:

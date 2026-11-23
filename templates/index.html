@@ -39,7 +39,7 @@
 <!-- Toolbar: Search + Filters + Sorting -->
 <section class="toolbar" aria-label="Gallery Controls">
     <!-- Live Search Bar -->
-    <form action="/" method="get" class="search-form" role="search" aria-label="Search prompt library">
+    <form action="{{ url_for('index') }}" method="get" class="search-form" role="search" aria-label="Search prompt library">
         <div class="search-box">
             <i class="fas fa-search search-icon" aria-hidden="true"></i>
             <input type="text"
@@ -119,7 +119,7 @@
     {% for p in prompts %}
     <article class="card">
         <div class="image-box">
-            <img src="{{ p.image_path }}"
+            <img src="{{ image_url(p) }}"
                  alt="AI Prompt: {{ p.prompt_text | truncate(80) }}"
                  loading="lazy">
 
@@ -149,14 +149,14 @@
                     <i class="fas fa-download" aria-hidden="true"></i>
                 </a>
 
-                <a href="/edit/{{ p.id }}"
+                <a href="{{ url_for('edit', id=p.id) }}"
                    class="overlay-btn"
                    title="Edit Prompt"
                    aria-label="Edit prompt">
                     <i class="fas fa-pen" aria-hidden="true"></i>
                 </a>
 
-                <form action="/delete/{{ p.id }}"
+                <form action="{{ url_for('delete', id=p.id) }}"
                       method="post"
                       class="inline-form js-confirm-form"
                       data-confirm="Are you sure you want to delete this prompt and its artwork?">
@@ -170,7 +170,7 @@
                 </form>
             </div>
 
-            <form action="/favorite/{{ p.id }}" method="post" class="fav-form">
+            <form action="{{ url_for('favorite', id=p.id) }}" method="post" class="fav-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"
                         class="fav-btn {% if p.is_favorite %}is-fav{% endif %}"
@@ -262,9 +262,9 @@
     </p>
     <div class="empty-state-actions">
         {% if q or selected_cat or show_fav %}
-            <a href="/" class="btn btn-ghost"><i class="fas fa-times" aria-hidden="true"></i> Reset Filters</a>
+            <a href="{{ url_for('index') }}" class="btn btn-ghost"><i class="fas fa-times" aria-hidden="true"></i> Reset Filters</a>
         {% endif %}
-        <a href="/add" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> Add First Prompt</a>
+        <a href="{{ url_for('add') }}" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> Add First Prompt</a>
     </div>
 </div>
 {% endif %}
@@ -273,6 +273,6 @@
 
 {% block extra_scripts %}
 {% if prompts %}
-<script src="/static/js/gallery.js" defer></script>
+<script src="{{ url_for('static', filename='js/gallery.js') }}" defer></script>
 {% endif %}
 {% endblock %}
