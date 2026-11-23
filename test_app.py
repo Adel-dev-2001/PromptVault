@@ -1,6 +1,7 @@
 import base64
 import importlib.util
 import io
+import json
 import os
 import re
 import shutil
@@ -94,6 +95,67 @@ class PromptVaultTests(unittest.TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+
+    def test_gallery_pagination_and_rel_links(self):
+        for idx in range(1, 27):
+            self.module.db.execute(
+                "INSERT INTO images (image_path, prompt_text, category, timestamp) "
+                "VALUES (?, ?, ?, ?)",
+                f"Paginated/img_{idx:02d}.png",
+                f"Paginated prompt {idx:02d}",
+                "Paginated",
+                f"2026-01-01 00:00:{idx:02d}",
+            )
+
+        page1 = self.client.get("/")
+        self.assertEqual(page1.status_code, 200)
+        html1 = page1.get_data(as_text=True)
+        self.assertEqual(html1.count('<article class="card">'), 24)
+        ds1_match = re.search(
+            r'<script type="application/json" id="promptDataset">([^<]+)</script>', html1
+        )
+        self.assertIsNotNone(ds1_match)
+        ds1 = json.loads(ds1_match.group(1))
+        self.assertEqual(len(ds1), 24)
+        self.assertEqual(ds1[0]["promptText"], "Paginated prompt 26")
+        self.assertIn('<link rel="next" href="http://localhost/?page=2">', html1)
+        self.assertNotIn('<link rel="prev"', html1)
+        self.assertIn('<link rel="canonical" href="http://localhost/">', html1)
+        self.assertIn('<meta name="robots" content="index, follow">', html1)
+
+        page2 = self.client.get("/?page=2")
+        self.assertEqual(page2.status_code, 200)
+        html2 = page2.get_data(as_text=True)
+        self.assertEqual(html2.count('<article class="card">'), 2)
+        ds2 = json.loads(
+            re.search(
+                r'<script type="application/json" id="promptDataset">([^<]+)</script>', html2
+            ).group(1)
+        )
+        self.assertEqual(len(ds2), 2)
+        self.assertEqual(
+            [item["promptText"] for item in ds2], ["Paginated prompt 02", "Paginated prompt 01"]
+        )
+        self.assertIn('<link rel="prev" href="http://localhost/">', html2)
+        self.assertNotIn('<link rel="next"', html2)
+        self.assertIn('<link rel="canonical" href="http://localhost/?page=2">', html2)
+        self.assertIn('<meta name="robots" content="index, follow">', html2)
+
+        clamped = self.client.get("/?page=99").get_data(as_text=True)
+        self.assertEqual(clamped.count('<article class="card">'), 2)
+        invalid_page = self.client.get("/?page=abc").get_data(as_text=True)
+        self.assertEqual(invalid_page.count('<article class="card">'), 24)
+
+        filtered_p2 = self.client.get("/?category=Paginated&sort=oldest&page=2").get_data(
+            as_text=True
+        )
+        self.assertEqual(filtered_p2.count('<article class="card">'), 2)
+        self.assertIn('<meta name="robots" content="noindex, follow">', filtered_p2)
+        self.assertIn('<link rel="canonical" href="http://localhost/">', filtered_p2)
+        self.assertIn(
+            '<link rel="prev" href="http://localhost/?category=Paginated&amp;sort=oldest">',
+            filtered_p2,
+        )
 
     def test_missing_csrf_is_rejected(self):
         self.assertEqual(self.client.post("/add", data={}).status_code, 400)

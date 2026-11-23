@@ -3,7 +3,15 @@
 {% block title %}Gallery | PromptVault{% endblock %}
 {% block meta_description %}Browse, search, and filter saved prompts paired with generated image files in PromptVault.{% endblock %}
 {% block meta_robots %}{% if q or selected_cat or show_fav or sort != 'newest' %}noindex, follow{% else %}index, follow{% endif %}{% endblock %}
-{% block canonical_url %}{{ url_for('index', _external=True) }}{% endblock %}
+{% block canonical_url %}{% if not (q or selected_cat or show_fav or sort != 'newest') and pagination.page > 1 %}{{ url_for('index', page=pagination.page, _external=True) }}{% else %}{{ url_for('index', _external=True) }}{% endif %}{% endblock %}
+{% block extra_head %}
+{% if pagination.prev_url_abs %}
+    <link rel="prev" href="{{ pagination.prev_url_abs }}">
+{% endif %}
+{% if pagination.next_url_abs %}
+    <link rel="next" href="{{ pagination.next_url_abs }}">
+{% endif %}
+{% endblock %}
 
 {% block extra_schema %}
 <script type="application/ld+json">
@@ -12,7 +20,7 @@
   "@type": "ImageGallery",
   "name": "PromptVault Gallery",
   "description": "Archive of generated images paired with their underlying prompt parameters.",
-  "numberOfItems": {{ prompts|length }}
+  "numberOfItems": {{ pagination.total_items }}
 }
 </script>
 {% endblock %}
@@ -211,6 +219,46 @@
     </article>
     {% endfor %}
 </div>
+
+{% if pagination.total_pages > 1 %}
+<nav class="pagination" aria-label="Gallery pagination">
+    {% if pagination.prev_url %}
+        <a href="{{ pagination.prev_url }}" class="page-btn" rel="prev">
+            <i class="fas fa-chevron-left" aria-hidden="true"></i> Previous
+        </a>
+    {% else %}
+        <span class="page-btn disabled" aria-disabled="true">
+            <i class="fas fa-chevron-left" aria-hidden="true"></i> Previous
+        </span>
+    {% endif %}
+
+    <ol class="page-numbers">
+        {% for item in pagination.pages %}
+            {% if item.number is none %}
+                <li class="page-ellipsis" aria-hidden="true">&hellip;</li>
+            {% elif item.current %}
+                <li>
+                    <a href="{{ item.url }}" class="page-num active" aria-current="page">{{ item.number }}</a>
+                </li>
+            {% else %}
+                <li>
+                    <a href="{{ item.url }}" class="page-num">{{ item.number }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+    </ol>
+
+    {% if pagination.next_url %}
+        <a href="{{ pagination.next_url }}" class="page-btn" rel="next">
+            Next <i class="fas fa-chevron-right" aria-hidden="true"></i>
+        </a>
+    {% else %}
+        <span class="page-btn disabled" aria-disabled="true">
+            Next <i class="fas fa-chevron-right" aria-hidden="true"></i>
+        </span>
+    {% endif %}
+</nav>
+{% endif %}
 
 <div id="detailsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-card">

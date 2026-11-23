@@ -11,6 +11,7 @@
     <meta name="robots" content="{% block meta_robots %}index, follow{% endblock %}">
     <meta name="theme-color" content="#080e1a">
     <link rel="canonical" href="{% block canonical_url %}{{ request.base_url }}{% endblock %}">
+    {% block extra_head %}{% endblock %}
 
     <meta property="og:site_name" content="PromptVault">
     <meta property="og:type" content="website">

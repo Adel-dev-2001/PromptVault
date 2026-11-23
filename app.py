@@ -44,6 +44,7 @@ EXPECTED_IMAGE_FORMATS = {
 }
 MAX_IMAGE_PIXELS = 20_000_000
 MAX_CONTENT_LENGTH = 10 * 1024 * 1024
+PER_PAGE = 24
 ALLOWED_JOINERS = {"\u200c", "\u200d"}
 CATEGORY_ERROR_MSG = (
     "Category must be 1-30 characters using letters, combining marks, numbers, "
@@ -382,13 +383,35 @@ def internal_error(error):
     return render_template("errors/500.html", error=error), 500
 
 
+def _pagination_window(current: int, total: int) -> list[int | None]:
+    """Return page numbers to display with None marking collapsed gaps."""
+    if total <= 7:
+        return list(range(1, total + 1))
+    pages: list[int | None] = [1]
+    start = max(2, current - 1)
+    end = min(total - 1, current + 1)
+    if start > 2:
+        pages.append(None)
+    pages.extend(range(start, end + 1))
+    if end < total - 1:
+        pages.append(None)
+    pages.append(total)
+    return pages
+
+
 @app.route("/")
 def index():
     categories = db.execute("SELECT DISTINCT category FROM images ORDER BY category")
     sort = request.args.get("sort", "newest")
+    if sort not in {"newest", "oldest"}:
+        sort = "newest"
     selected_cat = request.args.get("category", "")
     show_fav = request.args.get("favorites", "")
     q = request.args.get("q", "").strip()
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+    except ValueError:
+        page = 1
 
     order = "DESC" if sort == "newest" else "ASC"
 
@@ -408,7 +431,20 @@ def index():
         params.extend([search_pattern, "\\", search_pattern, "\\"])
 
     where_sql = f" WHERE {' AND '.join(clauses)}" if clauses else ""
-    prompts = db.execute(f"SELECT * FROM images{where_sql} ORDER BY timestamp {order}", *params)
+    filtered_total = db.execute(f"SELECT COUNT(*) AS count FROM images{where_sql}", *params)[0][
+        "count"
+    ]
+    total_pages = max(1, (filtered_total + PER_PAGE - 1) // PER_PAGE)
+    if page > total_pages:
+        page = total_pages
+    offset = (page - 1) * PER_PAGE
+
+    prompts = db.execute(
+        f"SELECT * FROM images{where_sql} ORDER BY timestamp {order}, id {order} LIMIT ? OFFSET ?",
+        *params,
+        PER_PAGE,
+        offset,
+    )
 
     stats_row = db.execute(
         "SELECT COUNT(*) AS total, "
@@ -419,6 +455,39 @@ def index():
         "total": stats_row["total"],
         "favorites": stats_row["favorites"],
         "categories": len(categories),
+    }
+
+    def build_gallery_url(target_page: int, external: bool = False) -> str:
+        query = {}
+        if selected_cat and not show_fav:
+            query["category"] = selected_cat
+        if show_fav:
+            query["favorites"] = show_fav
+        if q:
+            query["q"] = q
+        if sort != "newest":
+            query["sort"] = sort
+        if target_page > 1:
+            query["page"] = target_page
+        return url_for("index", _external=external, **query)
+
+    pagination = {
+        "page": page,
+        "per_page": PER_PAGE,
+        "total_items": filtered_total,
+        "total_pages": total_pages,
+        "prev_url": build_gallery_url(page - 1) if page > 1 else None,
+        "next_url": build_gallery_url(page + 1) if page < total_pages else None,
+        "prev_url_abs": build_gallery_url(page - 1, external=True) if page > 1 else None,
+        "next_url_abs": build_gallery_url(page + 1, external=True) if page < total_pages else None,
+        "pages": [
+            {
+                "number": num,
+                "url": build_gallery_url(num) if num is not None else None,
+                "current": num == page,
+            }
+            for num in _pagination_window(page, total_pages)
+        ],
     }
 
     prompt_items = [
@@ -443,6 +512,7 @@ def index():
         show_fav=show_fav,
         q=q,
         stats=stats,
+        pagination=pagination,
     )
 
 
