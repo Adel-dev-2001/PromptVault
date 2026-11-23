@@ -6,9 +6,7 @@ import os
 import re
 import secrets
 import sqlite3
-import sys
 import unicodedata
-from datetime import datetime, timezone
 from urllib.parse import unquote, urlsplit
 
 from cs50 import SQL
@@ -58,36 +56,34 @@ KNOWN_PLACEHOLDER_SECRETS = {
     "changeme",
     "secret",
 }
-WSGI_SERVER_NAMES = ("gunicorn", "uwsgi", "waitress", "mod_wsgi", "hypercorn", "uvicorn")
+ABOUT_LASTMOD = "2026-11-23"
 FORM_ENDPOINTS = frozenset({"index", "add", "edit"})
 
 
-def is_wsgi_runtime() -> bool:
-    """Return True when the current process is launched by a WSGI server."""
-    server_software = os.environ.get("SERVER_SOFTWARE", "").lower()
-    if any(name in server_software for name in WSGI_SERVER_NAMES):
-        return True
-    if any(name in sys.modules for name in WSGI_SERVER_NAMES):
-        return True
-    prog = os.path.basename(sys.argv[0]).lower() if sys.argv else ""
-    return any(name in prog for name in WSGI_SERVER_NAMES)
-
-
-def resolve_secret_key(logger, require_valid_key: bool) -> str:
-    """Return SECRET_KEY from env, or fail in production/WSGI / warn once in dev."""
+def resolve_secret_key(logger, is_production: bool) -> str:
+    """Return SECRET_KEY from env, or fail in production / warn once in dev."""
     raw = os.environ.get("SECRET_KEY", "").strip()
     invalid = not raw or len(raw) < 32 or raw in KNOWN_PLACEHOLDER_SECRETS
     if not invalid:
         return raw
-    if require_valid_key:
+    if is_production:
         raise RuntimeError(
-            "SECRET_KEY must be set to a non-placeholder value of at least 32 chars "
-            "in production or under a WSGI server."
+            "SECRET_KEY must be set to a non-placeholder value of at least 32 chars in production."
         )
     logger.warning(
         "SECRET_KEY is missing, short, or placeholder; generated a temporary development key."
     )
     return secrets.token_hex(32)
+
+
+def resolve_database_path(raw_path: str, app_root: str) -> str:
+    """Resolve DATABASE_PATH; relative values resolve from app_root rather than cwd."""
+    cleaned = (raw_path or "").strip()
+    if not cleaned:
+        return os.path.join(app_root, "prompts.db")
+    if os.path.isabs(cleaned):
+        return os.path.abspath(cleaned)
+    return os.path.abspath(os.path.join(app_root, cleaned))
 
 
 def compute_static_version(static_root: str) -> str:
@@ -112,7 +108,7 @@ def compute_static_version(static_root: str) -> str:
 
 app = Flask(__name__)
 IS_PRODUCTION = os.environ.get("APP_ENV", "development").strip().lower() == "production"
-app.secret_key = resolve_secret_key(app.logger, IS_PRODUCTION or is_wsgi_runtime())
+app.secret_key = resolve_secret_key(app.logger, IS_PRODUCTION)
 STATIC_VERSION = compute_static_version(os.path.join(app.root_path, "static"))
 
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
@@ -170,9 +166,7 @@ def require_app_password():
 # Registered after Basic auth hook so unauthenticated POSTs return 401 before CSRF checks.
 csrf = CSRFProtect(app)
 
-default_database_path = os.path.join(app.root_path, "prompts.db")
-raw_database_path = os.environ.get("DATABASE_PATH", "").strip()
-database_path = os.path.abspath(raw_database_path) if raw_database_path else default_database_path
+database_path = resolve_database_path(os.environ.get("DATABASE_PATH", ""), app.root_path)
 os.makedirs(os.path.dirname(database_path), exist_ok=True)
 sqlite3.connect(database_path).close()
 db = SQL(f"sqlite:///{database_path}")
@@ -448,8 +442,24 @@ def index():
         "count"
     ]
     total_pages = max(1, (filtered_total + PER_PAGE - 1) // PER_PAGE)
+
+    def build_gallery_url(target_page: int, external: bool = False) -> str:
+        query = {}
+        if selected_cat and not show_fav:
+            query["category"] = selected_cat
+        if show_fav:
+            query["favorites"] = show_fav
+        if q:
+            query["q"] = q
+        if sort != "newest":
+            query["sort"] = sort
+        if target_page > 1:
+            query["page"] = target_page
+        return url_for("index", _external=external, **query)
+
     if page > total_pages:
-        page = total_pages
+        return redirect(build_gallery_url(total_pages))
+
     offset = (page - 1) * PER_PAGE
 
     prompts = db.execute(
@@ -469,20 +479,6 @@ def index():
         "favorites": stats_row["favorites"],
         "categories": len(categories),
     }
-
-    def build_gallery_url(target_page: int, external: bool = False) -> str:
-        query = {}
-        if selected_cat and not show_fav:
-            query["category"] = selected_cat
-        if show_fav:
-            query["favorites"] = show_fav
-        if q:
-            query["q"] = q
-        if sort != "newest":
-            query["sort"] = sort
-        if target_page > 1:
-            query["page"] = target_page
-        return url_for("index", _external=external, **query)
 
     pagination = {
         "page": page,
@@ -752,17 +748,8 @@ def robots_txt():
 @app.route("/sitemap.xml")
 def sitemap_xml():
     base_url = request.url_root.rstrip("/")
-    today = datetime.now(timezone.utc).date().isoformat()
     latest_row = db.execute("SELECT MAX(timestamp) AS latest FROM images")[0]
-    gallery_lastmod = str(latest_row["latest"])[:10] if latest_row["latest"] else today
-
-    about_path = os.path.join(app.root_path, "templates", "about.html")
-    try:
-        about_lastmod = (
-            datetime.fromtimestamp(os.path.getmtime(about_path), tz=timezone.utc).date().isoformat()
-        )
-    except OSError:
-        about_lastmod = today
+    gallery_lastmod = str(latest_row["latest"])[:10] if latest_row["latest"] else ABOUT_LASTMOD
 
     xml_lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -773,7 +760,7 @@ def sitemap_xml():
         "  </url>",
         "  <url>",
         f"    <loc>{base_url}/about</loc>",
-        f"    <lastmod>{about_lastmod}</lastmod>",
+        f"    <lastmod>{ABOUT_LASTMOD}</lastmod>",
         "  </url>",
         "</urlset>",
     ]

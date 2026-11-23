@@ -141,8 +141,16 @@ class PromptVaultTests(unittest.TestCase):
         self.assertIn('<link rel="canonical" href="http://localhost/?page=2">', html2)
         self.assertIn('<meta name="robots" content="index, follow">', html2)
 
-        clamped = self.client.get("/?page=99").get_data(as_text=True)
-        self.assertEqual(clamped.count('<article class="card">'), 2)
+        overflow = self.client.get("/?page=99")
+        self.assertEqual(overflow.status_code, 302)
+        self.assertEqual(overflow.headers["Location"], "/?page=2")
+
+        filtered_overflow = self.client.get("/?category=Paginated&sort=oldest&page=99")
+        self.assertEqual(filtered_overflow.status_code, 302)
+        self.assertEqual(
+            filtered_overflow.headers["Location"], "/?category=Paginated&sort=oldest&page=2"
+        )
+
         invalid_page = self.client.get("/?page=abc").get_data(as_text=True)
         self.assertEqual(invalid_page.count('<article class="card">'), 24)
 
@@ -156,6 +164,11 @@ class PromptVaultTests(unittest.TestCase):
             '<link rel="prev" href="http://localhost/?category=Paginated&amp;sort=oldest">',
             filtered_p2,
         )
+
+        self.module.db.execute("DELETE FROM images")
+        empty_overflow = self.client.get("/?page=5")
+        self.assertEqual(empty_overflow.status_code, 302)
+        self.assertEqual(empty_overflow.headers["Location"], "/")
 
     def test_missing_csrf_is_rejected(self):
         self.assertEqual(self.client.post("/add", data={}).status_code, 400)
@@ -769,6 +782,7 @@ class PromptVaultTests(unittest.TestCase):
         self.assertEqual(locs, ["http://localhost/", "http://localhost/about"])
         lastmods = re.findall(r"<lastmod>(\d{4}-\d{2}-\d{2})</lastmod>", sitemap_text)
         self.assertEqual(len(lastmods), 2)
+        self.assertEqual(lastmods[1], self.module.ABOUT_LASTMOD)
         self.assertNotIn("<changefreq>", sitemap_text)
         self.assertNotIn("<priority>", sitemap_text)
 
@@ -956,14 +970,64 @@ class PromptVaultTests(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertEqual(proc.stderr.count("SECRET_KEY is missing"), 1)
 
-    def test_wsgi_runtime_requires_secret_key_even_when_app_env_unset(self):
+    def test_env_example_and_relative_database_path_resolution(self):
+        repo_dir = Path(__file__).resolve().parent
+        env_example = (repo_dir / ".env.example").read_text(encoding="utf-8")
+        self.assertIsNone(re.search(r"(?m)^DATABASE_PATH=", env_example))
+        self.assertRegex(env_example, r"(?m)^#\s*DATABASE_PATH=")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app_root = Path(tmp) / "app_root"
+            other_cwd = Path(tmp) / "other_cwd"
+            app_root.mkdir()
+            other_cwd.mkdir()
+
+            resolved_rel = Path(self.module.resolve_database_path("data/custom.db", str(app_root)))
+            self.assertEqual(resolved_rel, (app_root / "data" / "custom.db").resolve())
+
+            abs_target = (other_cwd / "abs.db").resolve()
+            resolved_abs = Path(self.module.resolve_database_path(str(abs_target), str(app_root)))
+            self.assertEqual(resolved_abs, abs_target)
+
+            shutil.copy2(repo_dir / "app.py", app_root / "app.py")
+            shutil.copytree(repo_dir / "templates", app_root / "templates")
+            shutil.copytree(
+                repo_dir / "static",
+                app_root / "static",
+                ignore=shutil.ignore_patterns("uploads"),
+            )
+            (app_root / "static" / "uploads").mkdir(parents=True, exist_ok=True)
+
+            env = os.environ.copy()
+            env["APP_ENV"] = "development"
+            env["DATABASE_PATH"] = "data/relative.db"
+            env["PYTHONPATH"] = str(app_root)
+            proc = subprocess.run(
+                [sys.executable, "-c", "import app; print(app.database_path)"],
+                cwd=str(other_cwd),
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual(
+                Path(proc.stdout.strip()).resolve(), (app_root / "data" / "relative.db").resolve()
+            )
+            self.assertTrue((app_root / "data" / "relative.db").exists())
+            self.assertFalse((other_cwd / "data").exists())
+
+    def test_wsgi_entrypoint_requires_secret_key_when_app_env_unset(self):
         repo_dir = Path(__file__).resolve().parent
         procfile_text = (repo_dir / "Procfile").read_text(encoding="utf-8").strip()
         self.assertEqual(procfile_text, "web: APP_ENV=production gunicorn wsgi:app")
 
+        dockerfile_text = (repo_dir / "Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("APP_ENV=production", dockerfile_text)
+
         wsgi_text = (repo_dir / "wsgi.py").read_text(encoding="utf-8")
         self.assertNotIn("===", wsgi_text)
         self.assertNotIn("waitress", wsgi_text.lower())
+        self.assertFalse(hasattr(self.module, "is_wsgi_runtime"))
 
         with tempfile.TemporaryDirectory() as tmp:
             base_env = os.environ.copy()
@@ -981,19 +1045,6 @@ class PromptVaultTests(unittest.TestCase):
             )
             self.assertNotEqual(proc_wsgi.returncode, 0)
             self.assertIn("SECRET_KEY", proc_wsgi.stderr)
-
-            server_env = base_env.copy()
-            server_env["SERVER_SOFTWARE"] = "gunicorn/27.0.1"
-            server_env["DATABASE_PATH"] = str(Path(tmp) / "gunicorn_fail.db")
-            proc_server = subprocess.run(
-                [sys.executable, "-c", "import app"],
-                cwd=str(repo_dir),
-                env=server_env,
-                capture_output=True,
-                text=True,
-            )
-            self.assertNotEqual(proc_server.returncode, 0)
-            self.assertIn("SECRET_KEY", proc_server.stderr)
 
             ok_env = base_env.copy()
             ok_env["SECRET_KEY"] = "c" * 32 + "d" * 32
