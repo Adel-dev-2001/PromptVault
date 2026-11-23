@@ -275,6 +275,6 @@
 
 {% block extra_scripts %}
 {% if prompts %}
-<script src="{{ url_for('static', filename='js/gallery.js') }}" defer></script>
+<script src="{{ asset_url('js/gallery.js') }}" defer></script>
 {% endif %}
 {% endblock %}

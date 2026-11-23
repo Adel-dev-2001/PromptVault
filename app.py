@@ -1,10 +1,12 @@
 """PromptVault: Flask application for storing AI-generated images and their prompts."""
 
+import hashlib
 import hmac
 import os
 import re
 import secrets
 import sqlite3
+import sys
 import unicodedata
 from urllib.parse import unquote, urlsplit
 
@@ -54,17 +56,31 @@ KNOWN_PLACEHOLDER_SECRETS = {
     "changeme",
     "secret",
 }
+WSGI_SERVER_NAMES = ("gunicorn", "uwsgi", "waitress", "mod_wsgi", "hypercorn", "uvicorn")
+FORM_ENDPOINTS = frozenset({"index", "add", "edit"})
 
 
-def resolve_secret_key(logger, is_production: bool) -> str:
-    """Return SECRET_KEY from env, or fail in production / warn once in dev."""
+def is_wsgi_runtime() -> bool:
+    """Return True when the current process is launched by a WSGI server."""
+    server_software = os.environ.get("SERVER_SOFTWARE", "").lower()
+    if any(name in server_software for name in WSGI_SERVER_NAMES):
+        return True
+    if any(name in sys.modules for name in WSGI_SERVER_NAMES):
+        return True
+    prog = os.path.basename(sys.argv[0]).lower() if sys.argv else ""
+    return any(name in prog for name in WSGI_SERVER_NAMES)
+
+
+def resolve_secret_key(logger, require_valid_key: bool) -> str:
+    """Return SECRET_KEY from env, or fail in production/WSGI / warn once in dev."""
     raw = os.environ.get("SECRET_KEY", "").strip()
     invalid = not raw or len(raw) < 32 or raw in KNOWN_PLACEHOLDER_SECRETS
     if not invalid:
         return raw
-    if is_production:
+    if require_valid_key:
         raise RuntimeError(
-            "SECRET_KEY must be set to a non-placeholder value of at least 32 chars in production."
+            "SECRET_KEY must be set to a non-placeholder value of at least 32 chars "
+            "in production or under a WSGI server."
         )
     logger.warning(
         "SECRET_KEY is missing, short, or placeholder; generated a temporary development key."
@@ -72,9 +88,30 @@ def resolve_secret_key(logger, is_production: bool) -> str:
     return secrets.token_hex(32)
 
 
+def compute_static_version(static_root: str) -> str:
+    """Compute a short digest of tracked static assets for cache-busting query strings."""
+    hasher = hashlib.sha256()
+    asset_names = (
+        "styles.css",
+        "favicon.svg",
+        "manifest.json",
+        "js/main.js",
+        "js/gallery.js",
+        "js/form.js",
+    )
+    for rel in asset_names:
+        path = os.path.join(static_root, *rel.split("/"))
+        if os.path.isfile(path):
+            hasher.update(rel.encode("utf-8"))
+            with open(path, "rb") as fh:
+                hasher.update(fh.read())
+    return hasher.hexdigest()[:10] or "1"
+
+
 app = Flask(__name__)
 IS_PRODUCTION = os.environ.get("APP_ENV", "development").strip().lower() == "production"
-app.secret_key = resolve_secret_key(app.logger, IS_PRODUCTION)
+app.secret_key = resolve_secret_key(app.logger, IS_PRODUCTION or is_wsgi_runtime())
+STATIC_VERSION = compute_static_version(os.path.join(app.root_path, "static"))
 
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -88,12 +125,21 @@ if os.environ.get("TRUST_PROXY") == "1":
 
 
 @app.before_request
-def require_app_password_for_mutations():
-    """Enforce HTTP Basic auth on state-changing requests when APP_PASSWORD is set."""
+def require_app_password():
+    """Require Basic auth on all routes except /robots.txt and /static/ when APP_PASSWORD is set.
+
+    Only the Basic auth password is verified; the username is ignored.
+    """
     expected = app.config.get("APP_PASSWORD")
     if expected is None:
         expected = os.environ.get("APP_PASSWORD", "")
-    if not expected or request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
+    if not expected:
+        return None
+    if (
+        request.endpoint in {"robots_txt", "static"}
+        or request.path == "/robots.txt"
+        or request.path.startswith("/static/")
+    ):
         return None
 
     auth = request.authorization
@@ -218,6 +264,12 @@ def image_url(item) -> str:
     return url_for("static", filename=f"uploads/{rel}")
 
 
+@app.template_global("asset_url")
+def asset_url(filename: str) -> str:
+    """Build a cache-busted /static URL for CSS, JS, and icon assets."""
+    return url_for("static", filename=filename, v=STATIC_VERSION)
+
+
 def validate_uploaded_image(file_storage, extension: str) -> None:
     """Verify binary image format and per-frame pixel bounds; resets stream to start."""
     with Image.open(file_storage.stream) as uploaded_image:
@@ -280,7 +332,7 @@ def security_headers(response):
 
     csp_directives = [
         "default-src 'self'",
-        "img-src 'self' data: https: blob:",
+        "img-src 'self' data: blob:",
         # Templates load external stylesheets only and avoid inline style attributes.
         "style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com",
@@ -291,6 +343,14 @@ def security_headers(response):
         "form-action 'self'",
     ]
     response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
+
+    if request.endpoint == "static" and response.status_code == 200:
+        if "v" in request.args:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "public, max-age=86400"
+    elif request.endpoint in FORM_ENDPOINTS and response.mimetype == "text/html":
+        response.headers["Cache-Control"] = "no-store"
 
     if request.is_secure:
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"

@@ -1,12 +1,9 @@
-"""
-WSGI Production Entry Point for PromptVault
-===========================================
-Used by production WSGI servers such as Gunicorn or Waitress:
-    gunicorn wsgi:app
-    waitress-serve --port=5000 wsgi:app
-"""
+"""WSGI entry point for PromptVault."""
 
-from app import app
+import os
 
-if __name__ == "__main__":
-    app.run()
+os.environ.setdefault("APP_ENV", "production")
+
+from app import app  # noqa: E402
+
+__all__ = ["app"]

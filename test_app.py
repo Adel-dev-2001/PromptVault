@@ -32,6 +32,10 @@ class PromptVaultTests(unittest.TestCase):
         workspace_static = Path(cls.workspace.name) / "static"
         workspace_uploads = workspace_static / "uploads"
         workspace_uploads.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(
+            Path(__file__).resolve().parent / "static" / "styles.css",
+            workspace_static / "styles.css",
+        )
         cls.module.app.static_folder = str(workspace_static)
         cls.module.app.config.update(
             TESTING=True,
@@ -611,8 +615,34 @@ class PromptVaultTests(unittest.TestCase):
         self.assertIn("script-src", directives)
         self.assertNotIn("'unsafe-inline'", directives["script-src"])
         self.assertEqual(directives["script-src"], ["'self'"])
+        self.assertEqual(directives["img-src"], ["'self'", "data:", "blob:"])
         self.assertEqual(res.headers.get("X-Frame-Options"), "SAMEORIGIN")
         self.assertIn("Permissions-Policy", res.headers)
+
+    def test_cache_control_headers_and_static_versioning(self):
+        self.upload(category="CacheTest")
+        row = self.module.db.execute("SELECT id FROM images")[0]
+
+        for path in ["/", "/add", f"/edit/{row['id']}"]:
+            with self.subTest(path=path):
+                page = self.client.get(path)
+                self.assertEqual(page.status_code, 200)
+                self.assertEqual(page.headers.get("Cache-Control"), "no-store")
+
+        home_html = self.client.get("/").get_data(as_text=True)
+        expected_v = f"styles.css?v={self.module.STATIC_VERSION}"
+        self.assertIn(expected_v, home_html)
+
+        with self.client.get(f"/static/styles.css?v={self.module.STATIC_VERSION}") as versioned:
+            self.assertEqual(versioned.status_code, 200)
+            self.assertEqual(
+                versioned.headers.get("Cache-Control"),
+                "public, max-age=31536000, immutable",
+            )
+
+        with self.client.get("/static/styles.css") as unversioned:
+            self.assertEqual(unversioned.status_code, 200)
+            self.assertEqual(unversioned.headers.get("Cache-Control"), "public, max-age=86400")
 
     def test_prompt_xss_attribute_injection_prevented(self):
         payload = '" onfocus=alert(1) x=" <script>evil()</script> & \u0639\u0631\u0628\u064a'
@@ -802,23 +832,107 @@ class PromptVaultTests(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertEqual(proc.stderr.count("SECRET_KEY is missing"), 1)
 
-    def test_app_password_protects_state_changing_routes(self):
-        token = base64.b64encode(b"user:secret-pass-42").decode("ascii")
+    def test_wsgi_runtime_requires_secret_key_even_when_app_env_unset(self):
+        repo_dir = Path(__file__).resolve().parent
+        procfile_text = (repo_dir / "Procfile").read_text(encoding="utf-8").strip()
+        self.assertEqual(procfile_text, "web: APP_ENV=production gunicorn wsgi:app")
+
+        wsgi_text = (repo_dir / "wsgi.py").read_text(encoding="utf-8")
+        self.assertNotIn("===", wsgi_text)
+        self.assertNotIn("waitress", wsgi_text.lower())
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base_env = os.environ.copy()
+            base_env.pop("APP_ENV", None)
+            base_env.pop("SECRET_KEY", None)
+
+            wsgi_env = base_env.copy()
+            wsgi_env["DATABASE_PATH"] = str(Path(tmp) / "wsgi_fail.db")
+            proc_wsgi = subprocess.run(
+                [sys.executable, "-c", "import wsgi"],
+                cwd=str(repo_dir),
+                env=wsgi_env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(proc_wsgi.returncode, 0)
+            self.assertIn("SECRET_KEY", proc_wsgi.stderr)
+
+            server_env = base_env.copy()
+            server_env["SERVER_SOFTWARE"] = "gunicorn/27.0.1"
+            server_env["DATABASE_PATH"] = str(Path(tmp) / "gunicorn_fail.db")
+            proc_server = subprocess.run(
+                [sys.executable, "-c", "import app"],
+                cwd=str(repo_dir),
+                env=server_env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(proc_server.returncode, 0)
+            self.assertIn("SECRET_KEY", proc_server.stderr)
+
+            ok_env = base_env.copy()
+            ok_env["SECRET_KEY"] = "c" * 32 + "d" * 32
+            ok_env["DATABASE_PATH"] = str(Path(tmp) / "wsgi_ok.db")
+            proc_ok = subprocess.run(
+                [sys.executable, "-c", "import wsgi"],
+                cwd=str(repo_dir),
+                env=ok_env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(proc_ok.returncode, 0, proc_ok.stderr)
+
+    def test_app_password_protects_all_non_static_routes(self):
+        self.upload(filename="existing.png", category="Existing")
+        existing = self.module.db.execute("SELECT * FROM images")[0]
+
+        token_any_user = base64.b64encode(b"ignored-user:secret-pass-42").decode("ascii")
+        token_empty_user = base64.b64encode(b":secret-pass-42").decode("ascii")
         wrong_token = base64.b64encode(b"user:wrong-pass").decode("ascii")
-        valid_headers = {"Authorization": f"Basic {token}"}
+        valid_headers = {"Authorization": f"Basic {token_any_user}"}
+        empty_user_headers = {"Authorization": f"Basic {token_empty_user}"}
         bad_headers = {"Authorization": f"Basic {wrong_token}"}
 
         with patch.dict(self.module.app.config, {"APP_PASSWORD": "secret-pass-42"}):
-            self.assertEqual(self.client.get("/").status_code, 200)
+            self.assertEqual(self.client.get("/robots.txt").status_code, 200)
+            with self.client.get("/static/styles.css") as css_res:
+                self.assertEqual(css_res.status_code, 200)
 
-            for path in ["/add", "/edit/1", "/favorite/1", "/delete/1"]:
-                unauth = self.client.post(path, data={"csrf_token": self.csrf_token()})
+            protected_gets = [
+                "/",
+                "/about",
+                "/add",
+                f"/edit/{existing['id']}",
+                "/sitemap.xml",
+                "/download/" + existing["image_path"],
+            ]
+            for path in protected_gets:
+                with self.subTest(method="GET", path=path):
+                    unauth = self.client.get(path)
+                    self.assertEqual(unauth.status_code, 401)
+                    self.assertIn("Basic", unauth.headers.get("WWW-Authenticate", ""))
+                    self.assertEqual(self.client.get(path, headers=bad_headers).status_code, 401)
+
+            self.assertEqual(self.client.get("/", headers=empty_user_headers).status_code, 200)
+            self.assertEqual(self.client.get("/about", headers=valid_headers).status_code, 200)
+
+            add_page = self.client.get("/add", headers=valid_headers).get_data(as_text=True)
+            token = re.search(r'name="csrf_token" value="([^"]+)"', add_page).group(1)
+
+            for path in [
+                "/add",
+                f"/edit/{existing['id']}",
+                f"/favorite/{existing['id']}",
+                f"/delete/{existing['id']}",
+            ]:
+                unauth = self.client.post(path, data={"csrf_token": token})
                 self.assertEqual(unauth.status_code, 401)
                 self.assertIn("Basic", unauth.headers.get("WWW-Authenticate", ""))
 
                 wrong = self.client.post(
                     path,
-                    data={"csrf_token": self.csrf_token()},
+                    data={"csrf_token": token},
                     headers=bad_headers,
                 )
                 self.assertEqual(wrong.status_code, 401)
@@ -828,7 +942,7 @@ class PromptVaultTests(unittest.TestCase):
             add_res = self.client.post(
                 "/add",
                 data={
-                    "csrf_token": self.csrf_token(),
+                    "csrf_token": token,
                     "image_file": (io.BytesIO(stream.getvalue()), "protected.png"),
                     "prompt_text": "Protected prompt",
                     "category": "Protected",
@@ -837,19 +951,21 @@ class PromptVaultTests(unittest.TestCase):
                 headers=valid_headers,
             )
             self.assertEqual(add_res.status_code, 302)
-            row_id = self.module.db.execute("SELECT id FROM images")[0]["id"]
+            row_id = self.module.db.execute("SELECT id FROM images ORDER BY id DESC LIMIT 1")[0][
+                "id"
+            ]
 
             fav_res = self.client.post(
                 f"/favorite/{row_id}",
-                data={"csrf_token": self.csrf_token()},
-                headers=valid_headers,
+                data={"csrf_token": token},
+                headers=empty_user_headers,
             )
             self.assertEqual(fav_res.status_code, 302)
 
             edit_res = self.client.post(
                 f"/edit/{row_id}",
                 data={
-                    "csrf_token": self.csrf_token(),
+                    "csrf_token": token,
                     "prompt_text": "Updated protected",
                     "category": "Protected",
                 },
@@ -859,7 +975,7 @@ class PromptVaultTests(unittest.TestCase):
 
             del_res = self.client.post(
                 f"/delete/{row_id}",
-                data={"csrf_token": self.csrf_token()},
+                data={"csrf_token": token},
                 headers=valid_headers,
             )
             self.assertEqual(del_res.status_code, 302)

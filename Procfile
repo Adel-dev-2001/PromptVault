@@ -1,1 +1,1 @@
-web: gunicorn wsgi:app
+web: APP_ENV=production gunicorn wsgi:app
