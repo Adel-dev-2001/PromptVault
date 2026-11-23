@@ -16,6 +16,8 @@ static/uploads/*
 !static/uploads/.gitkeep
 test_app.py
 pyproject.toml
+requirements-dev.txt
+docs/
 .pytest_cache
 .ruff_cache
 .coverage
