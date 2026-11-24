@@ -22,7 +22,6 @@ ENV/
 # Uploaded image artifacts (preserve folder structure via .gitkeep)
 data/uploads/*
 !data/uploads/.gitkeep
-static/uploads/*
 
 # Operating system & editor metadata
 .DS_Store

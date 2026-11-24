@@ -57,7 +57,7 @@ Generated with Playwright against a seeded local Flask instance:
 
 - Single Flask module ([app.py](app.py)) backed by one SQLite table (`images`, queried via `cs50.SQL`), server-rendered Jinja2 templates (`templates/`), and custom HTML pages for HTTP 400, 404, 405, 413, and 500.
 - Uploaded images are stored outside `static/` under `data/uploads/<Category>/` (configurable via `UPLOAD_FOLDER`) and served by explicit `/media/<path:filename>` and `/download/<path:filename>` routes.
-- SQLite records only relative `Category/file.ext` paths; a startup migration normalizes any legacy `/static/uploads/` URLs, and templates build URLs with `url_for` so mounting under a `SCRIPT_NAME` prefix works without rewriting stored rows.
+- SQLite records only relative `Category/file.ext` paths; a startup migration normalizes any legacy `/static/uploads/` URLs, moves any pre-existing files from `static/uploads/` into `UPLOAD_FOLDER` without overwriting (pruning empty directories and logging each moved file), and templates build URLs with `url_for` so mounting under a `SCRIPT_NAME` prefix works without rewriting stored rows.
 - Relative `DATABASE_PATH` and `UPLOAD_FOLDER` values resolve from `app.root_path` rather than the current working directory. If an `INSERT` fails after writing a file, the saved file is deleted; changing a category moves the file and removes empty old folders, or returns HTTP 400 if the file is missing on disk.
 - Gallery queries compute counters with `COUNT(*)` and `SUM`, paginate at 24 entries per page (`?page=N`), redirect out-of-range page numbers (`page > total_pages`) to the last page with HTTP 302, and embed only the current page in `<script type="application/json">` with `rel="prev"` / `rel="next"` and canonical links.
 - Three deferred scripts under `static/js/` (`main.js`, `gallery.js`, `form.js`) handle the shared focus-trapping modal controller, mobile navigation toggle, responsive search placeholder, clipboard copy, and upload previews without a frontend build step.
@@ -154,7 +154,7 @@ python scripts/make_social_card.py
 
 ## Docker
 
-The repository includes a single-stage `Dockerfile` (`python:3.13-slim`), `.dockerignore`, and `docker-compose.yml`. The image runs as non-root user `appuser` owning `/app/data` (including `/app/data/uploads`), sets `APP_ENV=production`, `DATABASE_PATH=/app/data/prompts.db`, and `UPLOAD_FOLDER=/app/data/uploads`, and runs a Python `urllib.request` health check against `http://127.0.0.1:5000/robots.txt`. `docker-compose.yml` binds `127.0.0.1:5000:5000` only, mounts persistent volumes at `/app/data` and `/app/data/uploads`, and requires `SECRET_KEY` from the host environment.
+The repository includes a single-stage `Dockerfile` (`python:3.13-slim`), `.dockerignore`, and `docker-compose.yml`. The image runs as non-root user `appuser` owning `/app/data` (including `/app/data/uploads`), sets `APP_ENV=production`, `DATABASE_PATH=/app/data/prompts.db`, and `UPLOAD_FOLDER=/app/data/uploads`, and runs a Python `urllib.request` health check against `http://127.0.0.1:5000/robots.txt`. `docker-compose.yml` binds `127.0.0.1:5000:5000` only, mounts a single named volume (`promptvault_data`) at `/app/data` for both the SQLite database and uploaded images, and requires `SECRET_KEY` from the host environment.
 
 ```bash
 export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
@@ -189,7 +189,7 @@ PromptVault/
 ├── data/
 │   └── uploads/
 │       └── .gitkeep               # Keeps upload directory tracked while uploaded images are ignored
-├── docker-compose.yml             # Localhost-bound Compose service with persistent volumes
+├── docker-compose.yml             # Localhost-bound Compose service with a single /app/data volume
 ├── docs/
 │   └── screenshots/
 │       ├── gallery.png            # Playwright desktop gallery screenshot

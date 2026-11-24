@@ -17,10 +17,7 @@ services:
       - APP_PASSWORD=${APP_PASSWORD:-}
     volumes:
       - promptvault_data:/app/data
-      - promptvault_uploads:/app/data/uploads
 
 volumes:
   promptvault_data:
-    driver: local
-  promptvault_uploads:
     driver: local

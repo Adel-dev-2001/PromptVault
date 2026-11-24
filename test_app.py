@@ -1004,6 +1004,15 @@ class PromptVaultTests(unittest.TestCase):
         self.assertIn('package-ecosystem: "github-actions"', dependabot_yml)
         self.assertIn('interval: "weekly"', dependabot_yml)
 
+        compose_yml = (repo_dir / "docker-compose.yml").read_text(encoding="utf-8")
+        self.assertIn("promptvault_data:/app/data", compose_yml)
+        self.assertNotIn("promptvault_uploads", compose_yml)
+
+        for ignore_name in (".gitignore", ".dockerignore"):
+            ignore_text = (repo_dir / ignore_name).read_text(encoding="utf-8")
+            self.assertNotIn("static/uploads", ignore_text)
+            self.assertIn("data/uploads/*", ignore_text)
+
     def test_schema_json_ld_present(self):
         res = self.client.get("/")
         self.assertEqual(res.status_code, 200)
