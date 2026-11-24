@@ -50,10 +50,10 @@
             <section class="about-section">
                 <h2><i class="fas fa-lock" aria-hidden="true"></i> Security Model</h2>
                 <ul class="specs-list">
-                    <li>PromptVault runs locally without user accounts by default; setting <code>APP_PASSWORD</code> requires HTTP Basic auth (username ignored) on all routes including <code>/static/uploads/</code>, leaving only <code>/robots.txt</code> and public <code>/static/</code> assets open.</li>
+                    <li>PromptVault runs locally without user accounts by default; setting <code>APP_PASSWORD</code> requires HTTP Basic auth (username ignored) on all routes including <code>/media/</code> and <code>/download/</code>, leaving only <code>/robots.txt</code> and <code>/static/</code> assets public.</li>
                     <li>All mutating endpoints check signed <code>Flask-WTF</code> CSRF tokens.</li>
                     <li>Uploads are capped at 10 MB; Pillow verifies image format against extension and checks every frame against a 20-megapixel ceiling.</li>
-                    <li>Category names are NFC-normalized and limited to 1-30 chars of Unicode letters, combining marks, digits, space, <code>-</code>, <code>_</code>, ZWNJ, and ZWJ; file resolution checks <code>os.path.commonpath</code> inside <code>static/uploads/</code>.</li>
+                    <li>Category names are NFC-normalized and limited to 1-30 chars of Unicode letters, combining marks, digits, space, <code>-</code>, <code>_</code>, ZWNJ, and ZWJ; uploaded files live outside <code>static/</code> under <code>data/uploads/</code> and path resolution checks <code>os.path.commonpath</code>.</li>
                     <li>Responses send <code>Content-Security-Policy</code> with <code>script-src 'self'</code> and <code>img-src 'self' data: blob:</code>, <code>Cache-Control: no-store</code> on HTML form pages, and HSTS over HTTPS.</li>
                 </ul>
             </section>

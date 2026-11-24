@@ -17,7 +17,7 @@
   </p>
 </div>
 
-> The hosted GitHub Pages link opens a static browser demo ([index.html](index.html) and [static/js/demo.js](static/js/demo.js)) that stores entries in your browser's `localStorage` with no backend. The primary application documented below is the Flask and SQLite server ([app.py](app.py)), which stores uploaded images on disk under `static/uploads/`, checks CSRF tokens, verifies image bytes with Pillow, and persists records in SQLite.
+> The hosted GitHub Pages link opens a static browser demo ([index.html](index.html) and [static/js/demo.js](static/js/demo.js)) that stores entries in your browser's `localStorage` with no backend. The primary application documented below is the Flask and SQLite server ([app.py](app.py)), which stores uploaded images on disk under `data/uploads/`, serves them via `/media/`, checks CSRF tokens, verifies image bytes with Pillow, and persists records in SQLite.
 
 ---
 
@@ -55,11 +55,14 @@ Generated with Playwright against a seeded local Flask instance:
 
 ## Architecture
 
-The server is a single Flask module ([app.py](app.py)) backed by one SQLite table (`images`, queried via `cs50.SQL`) and server-rendered Jinja2 templates (`templates/`), including custom HTML error pages for HTTP 400, 404, 405, 413, and 500. Uploaded images are written under `static/uploads/<Category>/` using `secure_filename` (appending `_1`, `_2`, ... on collisions), while SQLite stores only relative `Category/file.ext` paths. A startup migration rewrites any legacy `/static/uploads/...` rows, templates generate URLs through `url_for`, and relative `DATABASE_PATH` values resolve from `app.root_path`, so mounting under a `SCRIPT_NAME` prefix or starting from another working directory keeps paths consistent. If an `INSERT` fails after saving an image, the file is deleted; changing a category moves the file and removes empty old folders, or returns HTTP 400 if the file is missing on disk.
-
-Gallery queries escape SQL `LIKE` wildcards (`%`, `_`, `\`), compute totals with `COUNT(*)` and `SUM`, paginate at 24 entries per page (`?page=N`), redirect out-of-range page numbers (`page > total_pages`) to the last page with HTTP 302, and embed only the current page's items in a `<script type="application/json">` element instead of inline event handlers. Unfiltered paginated pages stay indexable with self-canonical URLs and `<link rel="prev">` / `<link rel="next">` links, while filtered views, `/add`, and `/edit` emit `noindex, follow`. `/robots.txt` and `/sitemap.xml` are served dynamically, using the latest entry date for `/` and the `ABOUT_LASTMOD` constant for `/about`.
-
-Interactive behavior lives in three deferred scripts under `static/js/` with no frontend build step: `main.js` manages the shared focus-trapping modal controller, mobile menu toggle, responsive search placeholder, delete confirmation, and clipboard fallback; `gallery.js` reads the JSON dataset; and `form.js` handles previews, tag pills, and character counts. Tracked CSS, JS, and icon files are served with a content-hashed `?v=` query parameter and `Cache-Control: public, max-age=31536000, immutable`. Uploaded images under `/static/uploads/` are served with `Cache-Control: public, max-age=3600, must-revalidate` and rely on Flask's `ETag` for conditional revalidation. HTML pages with forms (`/`, `/add`, `/edit/<id>`) send `Cache-Control: no-store`. The root [index.html](index.html) and [static/js/demo.js](static/js/demo.js) form a separate static-only browser demo for GitHub Pages.
+- Single Flask module ([app.py](app.py)) backed by one SQLite table (`images`, queried via `cs50.SQL`), server-rendered Jinja2 templates (`templates/`), and custom HTML pages for HTTP 400, 404, 405, 413, and 500.
+- Uploaded images are stored outside `static/` under `data/uploads/<Category>/` (configurable via `UPLOAD_FOLDER`) and served by explicit `/media/<path:filename>` and `/download/<path:filename>` routes.
+- SQLite records only relative `Category/file.ext` paths; a startup migration normalizes any legacy `/static/uploads/` URLs, and templates build URLs with `url_for` so mounting under a `SCRIPT_NAME` prefix works without rewriting stored rows.
+- Relative `DATABASE_PATH` and `UPLOAD_FOLDER` values resolve from `app.root_path` rather than the current working directory. If an `INSERT` fails after writing a file, the saved file is deleted; changing a category moves the file and removes empty old folders, or returns HTTP 400 if the file is missing on disk.
+- Gallery queries compute counters with `COUNT(*)` and `SUM`, paginate at 24 entries per page (`?page=N`), redirect out-of-range page numbers (`page > total_pages`) to the last page with HTTP 302, and embed only the current page in `<script type="application/json">` with `rel="prev"` / `rel="next"` and canonical links.
+- Three deferred scripts under `static/js/` (`main.js`, `gallery.js`, `form.js`) handle the shared focus-trapping modal controller, mobile navigation toggle, responsive search placeholder, clipboard copy, and upload previews without a frontend build step.
+- Tracked `/static/` assets use a content-hashed `?v=` query parameter (`Cache-Control: public, max-age=31536000, immutable`), `/media/` responses send `Cache-Control: public, max-age=3600, must-revalidate` with Flask's `ETag`, and HTML pages containing forms (`/`, `/add`, `/edit/<id>`) send `Cache-Control: no-store`.
+- `/robots.txt` and `/sitemap.xml` are served dynamically using `<lastmod>` (latest entry date for `/`, `ABOUT_LASTMOD` constant for `/about`). The root [index.html](index.html) and [static/js/demo.js](static/js/demo.js) form a separate static-only browser demo for GitHub Pages.
 
 ---
 
@@ -113,7 +116,8 @@ gunicorn --workers 4 --bind 127.0.0.1:5000 wsgi:app
 | `APP_ENV` | `development` (`production` in `wsgi.py`, `Procfile`, `Dockerfile`) | Enables mandatory `SECRET_KEY` validation and `SESSION_COOKIE_SECURE` when set to `production`. |
 | `SECRET_KEY` | Temporary random key in local dev | Signs Flask sessions and CSRF tokens. Must be at least 32 characters and non-placeholder in production. |
 | `DATABASE_PATH` | `<app_root>/prompts.db` (`/app/data/prompts.db` in Docker) | SQLite database path; relative values resolve from `app.root_path`. Commented out in `.env.example`. |
-| `APP_PASSWORD` | Empty (disabled) | When non-empty, requires HTTP Basic auth (`hmac.compare_digest`, username ignored) on all routes including `/static/uploads/`, exempting only `/robots.txt` and public `/static/` assets. |
+| `UPLOAD_FOLDER` | `<app_root>/data/uploads` (`/app/data/uploads` in Docker) | Directory for uploaded image files; relative values resolve from `app.root_path`. Commented out in `.env.example`. |
+| `APP_PASSWORD` | Empty (disabled) | When non-empty, requires HTTP Basic auth (`hmac.compare_digest`, username ignored) on all routes including `/media/` and `/download/`; only `/robots.txt` and `/static/` stay public. |
 | `HOST` | `127.0.0.1` | Bind address for `python app.py`. |
 | `PORT` | `5000` | Listen port for `python app.py`. |
 | `FLASK_DEBUG` | `0` | Enables Flask debug reloader and debugger when set to `1`. |
@@ -150,7 +154,7 @@ python scripts/make_social_card.py
 
 ## Docker
 
-The repository includes a single-stage `Dockerfile` (`python:3.13-slim`), `.dockerignore`, and `docker-compose.yml`. The image runs as non-root user `appuser` owning `/app/data` and `/app/static/uploads`, sets `APP_ENV=production` and `DATABASE_PATH=/app/data/prompts.db`, and runs a Python `urllib.request` health check against `http://127.0.0.1:5000/robots.txt`. `docker-compose.yml` binds `127.0.0.1:5000:5000` only and requires `SECRET_KEY` from the host environment.
+The repository includes a single-stage `Dockerfile` (`python:3.13-slim`), `.dockerignore`, and `docker-compose.yml`. The image runs as non-root user `appuser` owning `/app/data` (including `/app/data/uploads`), sets `APP_ENV=production`, `DATABASE_PATH=/app/data/prompts.db`, and `UPLOAD_FOLDER=/app/data/uploads`, and runs a Python `urllib.request` health check against `http://127.0.0.1:5000/robots.txt`. `docker-compose.yml` binds `127.0.0.1:5000:5000` only, mounts persistent volumes at `/app/data` and `/app/data/uploads`, and requires `SECRET_KEY` from the host environment.
 
 ```bash
 export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
@@ -167,7 +171,7 @@ docker compose up -d --build
 PromptVault/
 ├── .dockerignore                  # Excludes local DBs, .env, .git, docs, dev deps, uploads, caches
 ├── .editorconfig                  # UTF-8, LF, trailing newline, 4-space Python / 2-space web rules
-├── .env.example                   # Environment variable template (DATABASE_PATH commented out)
+├── .env.example                   # Environment variable template (DATABASE_PATH/UPLOAD_FOLDER commented)
 ├── .gitattributes                 # Forces LF line endings on text files and marks binary image formats
 ├── .github/
 │   ├── dependabot.yml             # Weekly Dependabot updates for pip and github-actions
@@ -182,6 +186,9 @@ PromptVault/
 ├── Procfile                       # Process command (APP_ENV=production gunicorn wsgi:app)
 ├── README.md                      # Project documentation
 ├── app.py                         # Flask routes, SQL queries, validation, headers, pagination, SEO
+├── data/
+│   └── uploads/
+│       └── .gitkeep               # Keeps upload directory tracked while uploaded images are ignored
 ├── docker-compose.yml             # Localhost-bound Compose service with persistent volumes
 ├── docs/
 │   └── screenshots/
@@ -209,9 +216,7 @@ PromptVault/
 │   │   └── main.js                # Async CSS loader, toast/copy, modal focus controller, mobile nav
 │   ├── manifest.json              # Web app manifest
 │   ├── og-card.png                # 1200x630 Open Graph / Twitter preview card
-│   ├── styles.css                 # Application styles
-│   └── uploads/
-│       └── .gitkeep               # Keeps uploads directory tracked while uploads are ignored
+│   └── styles.css                 # Application styles
 ├── templates/
 │   ├── about.html                 # Application overview and security model page
 │   ├── add.html                   # Upload form
@@ -237,10 +242,10 @@ PromptVault is designed as a single-user local tool by default.
 ### What is protected
 
 - All `POST` endpoints (`/add`, `/edit/<id>`, `/favorite/<id>`, `/delete/<id>`) require valid `Flask-WTF` CSRF tokens.
-- Setting `APP_PASSWORD` enforces HTTP Basic authentication (compared with `hmac.compare_digest`, username ignored) on every route including `/static/uploads/` and `/download/<path>`; only `/robots.txt` and non-upload static assets under `/static/` stay unauthenticated.
-- Uploads are capped at 10 MB, restricted to `png`, `jpg`, `jpeg`, `gif`, and `webp`, verified for matching binary format via Pillow, checked against a 20,000,000-pixel per-frame limit (including animated GIF/WebP frames), and saved with sanitized filenames.
-- Category names are NFC-normalized, collapse runs of ASCII spaces, and allow only 1-30 characters from Unicode letters (`L*`), combining marks (`M*`), digits (`N*`), space, `-`, `_`, ZWNJ (`U+200C`), and ZWJ (`U+200D`), rejecting other control/format characters and strings without letters or digits. Upload resolution and `/download/<path>` reject null bytes, backslashes, percent signs (on downloads), and `..` segments, and check `os.path.commonpath` against `UPLOAD_FOLDER`.
-- SQL queries bind all user inputs as parameters (`?`), `LIKE` search escapes wildcard characters, Jinja autoescaping prevents HTML/attribute injection, and responses set `Content-Security-Policy` (`script-src 'self'`, `img-src 'self' data: blob:`, no `'unsafe-inline'`), `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Permissions-Policy`, `Cache-Control: no-store` on form pages, and `Strict-Transport-Security` over HTTPS (with `ProxyFix` when `TRUST_PROXY=1`). `/favorite/<id>` redirects only to same-origin referrers.
+- Setting `APP_PASSWORD` enforces HTTP Basic authentication (compared with `hmac.compare_digest`, username ignored) on all routes except an explicit allow-list (`robots_txt` and `static`). Because uploads live outside `static/` in `data/uploads/` and are served through `/media/` and `/download/`, uploaded images require authentication by default and cannot be reached through `/static/` path-normalization tricks.
+- Uploads are capped at 10 MB, restricted to `png`, `jpg`, `jpeg`, `gif`, and `webp`, verified for matching binary format via Pillow, checked against a 20,000,000-pixel per-frame limit (including animated GIF/WebP frames), and saved with `secure_filename` (appending `_1`, `_2`, ... on collisions).
+- Category names are NFC-normalized, collapse runs of ASCII spaces, and allow only 1-30 characters from Unicode letters (`L*`), combining marks (`M*`), digits (`N*`), space, `-`, `_`, ZWNJ (`U+200C`), and ZWJ (`U+200D`), rejecting other control/format characters and strings without letters or digits. `/media/<path>` and `/download/<path>` reject null bytes, backslashes, percent signs, and empty/`.`/`..` path segments, and verify `os.path.commonpath` against `UPLOAD_FOLDER`.
+- SQL queries bind user inputs as parameters (`?`), `LIKE` search escapes `%`, `_`, and `\`, Jinja autoescaping prevents HTML/attribute injection, and responses set `Content-Security-Policy` (`script-src 'self'`, `img-src 'self' data: blob:`, no `'unsafe-inline'`), `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Permissions-Policy`, and `Strict-Transport-Security` over HTTPS (with `ProxyFix` when `TRUST_PROXY=1`). `/favorite/<id>` redirects only to same-origin referrers.
 
 ### What is not protected
 
