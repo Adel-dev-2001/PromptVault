@@ -220,6 +220,7 @@ def migrate_legacy_upload_files() -> None:
                 continue
             src = os.path.join(dirpath, filename)
             rel = os.path.relpath(src, legacy_root)
+            rel_posix = rel.replace(os.sep, "/")
             dst = os.path.abspath(os.path.join(upload_root, rel))
             try:
                 if os.path.commonpath([upload_root, dst]) != upload_root:
@@ -227,10 +228,20 @@ def migrate_legacy_upload_files() -> None:
             except ValueError:
                 continue
             if os.path.exists(dst):
+                app.logger.warning(
+                    "Skipped legacy upload %s; target exists, file left in static/uploads/",
+                    rel_posix,
+                )
                 continue
             os.makedirs(os.path.dirname(dst), exist_ok=True)
-            shutil.move(src, dst)
-            app.logger.info("Moved legacy upload %s to %s", rel.replace(os.sep, "/"), dst)
+            try:
+                shutil.move(src, dst)
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                app.logger.warning("Could not move legacy upload %s: %s", rel_posix, exc)
+                continue
+            app.logger.info("Moved legacy upload %s to %s", rel_posix, dst)
 
         try:
             if os.path.isdir(dirpath) and not os.listdir(dirpath):

@@ -293,6 +293,34 @@ class PromptVaultTests(unittest.TestCase):
 
                 moved_logs = [m for m in log_cm.output if "Legacy/old.png" in m]
                 self.assertEqual(len(moved_logs), 1)
+
+                collision_warnings = [
+                    m
+                    for m in log_cm.output
+                    if m.startswith("WARNING:") and "Keep/same.png" in m and "static/uploads/" in m
+                ]
+                self.assertEqual(len(collision_warnings), 1)
+
+                # Simulate another worker moving a file mid-migration (FileNotFoundError -> silent).
+                raced_file = app_root / "static" / "uploads" / "Race" / "vanished.png"
+                raced_file.parent.mkdir(parents=True, exist_ok=True)
+                raced_file.write_bytes(b"race")
+                with (
+                    patch.object(mod.shutil, "move", side_effect=FileNotFoundError),
+                    self.assertLogs(mod_name, level=logging.WARNING) as race_cm,
+                ):
+                    mod.migrate_legacy_upload_files()
+                self.assertFalse(
+                    any("Race/vanished.png" in m for m in race_cm.output), race_cm.output
+                )
+
+                # Simulate another OSError during move (logs warning, does not raise).
+                with (
+                    patch.object(mod.shutil, "move", side_effect=PermissionError("locked")),
+                    self.assertLogs(mod_name, level=logging.WARNING) as err_cm,
+                ):
+                    mod.migrate_legacy_upload_files()
+                self.assertTrue(any("Race/vanished.png" in m for m in err_cm.output), err_cm.output)
             finally:
                 if mod is not None and hasattr(mod, "db"):
                     mod.db._disconnect()
