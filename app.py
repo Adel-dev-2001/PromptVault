@@ -5,6 +5,7 @@ import hmac
 import os
 import re
 import secrets
+import shutil
 import sqlite3
 import unicodedata
 from urllib.parse import unquote, urlsplit
@@ -206,7 +207,40 @@ def migrate_legacy_image_paths() -> None:
             db.execute("UPDATE images SET image_path = ? WHERE id = ?", normalized, row["id"])
 
 
+def migrate_legacy_upload_files() -> None:
+    """Move pre-existing files from static/uploads/ into UPLOAD_FOLDER without overwriting."""
+    legacy_root = os.path.abspath(os.path.join(app.root_path, "static", "uploads"))
+    upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
+    if legacy_root == upload_root or not os.path.isdir(legacy_root):
+        return
+
+    for dirpath, _dirnames, filenames in os.walk(legacy_root, topdown=False):
+        for filename in filenames:
+            if filename == ".gitkeep":
+                continue
+            src = os.path.join(dirpath, filename)
+            rel = os.path.relpath(src, legacy_root)
+            dst = os.path.abspath(os.path.join(upload_root, rel))
+            try:
+                if os.path.commonpath([upload_root, dst]) != upload_root:
+                    continue
+            except ValueError:
+                continue
+            if os.path.exists(dst):
+                continue
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.move(src, dst)
+            app.logger.info("Moved legacy upload %s to %s", rel.replace(os.sep, "/"), dst)
+
+        try:
+            if os.path.isdir(dirpath) and not os.listdir(dirpath):
+                os.rmdir(dirpath)
+        except OSError:
+            pass
+
+
 migrate_legacy_image_paths()
+migrate_legacy_upload_files()
 
 
 def allowed_file(filename: str) -> bool:

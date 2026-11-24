@@ -2,9 +2,11 @@ import base64
 import importlib.util
 import io
 import json
+import logging
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -207,6 +209,103 @@ class PromptVaultTests(unittest.TestCase):
             for row in self.module.db.execute("SELECT image_path FROM images ORDER BY id")
         ]
         self.assertEqual(migrated, [expected for _, expected in legacy_rows])
+
+    def test_legacy_static_uploads_migrated_on_startup(self):
+        repo_dir = Path(__file__).resolve().parent
+        prev_db_env = os.environ.get("DATABASE_PATH")
+        prev_upload_env = os.environ.get("UPLOAD_FOLDER")
+        mod = None
+        mod_name = "promptvault_legacy_file_test"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app_root = Path(tmp) / "app_root"
+            app_root.mkdir()
+            shutil.copy2(repo_dir / "app.py", app_root / "app.py")
+            shutil.copytree(repo_dir / "templates", app_root / "templates")
+            shutil.copytree(repo_dir / "static", app_root / "static")
+
+            stream = io.BytesIO()
+            Image.new("RGB", (6, 6), "teal").save(stream, format="PNG")
+            legacy_png = stream.getvalue()
+
+            legacy_file = app_root / "static" / "uploads" / "Legacy" / "old.png"
+            legacy_file.parent.mkdir(parents=True, exist_ok=True)
+            legacy_file.write_bytes(legacy_png)
+
+            empty_legacy_dir = app_root / "static" / "uploads" / "EmptyOld"
+            empty_legacy_dir.mkdir(parents=True, exist_ok=True)
+
+            # Seed an existing target file to verify migration does not overwrite it.
+            existing_target = app_root / "data" / "uploads" / "Keep" / "same.png"
+            existing_target.parent.mkdir(parents=True, exist_ok=True)
+            existing_target.write_bytes(b"new-version")
+            legacy_dup = app_root / "static" / "uploads" / "Keep" / "same.png"
+            legacy_dup.parent.mkdir(parents=True, exist_ok=True)
+            legacy_dup.write_bytes(b"old-version")
+
+            db_file = app_root / "prompts.db"
+            conn = sqlite3.connect(db_file)
+            conn.execute(
+                """
+                CREATE TABLE images (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    image_path TEXT NOT NULL,
+                    prompt_text TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    is_favorite INTEGER DEFAULT 0,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            conn.execute(
+                "INSERT INTO images (image_path, prompt_text, category) VALUES (?, ?, ?)",
+                ("/static/uploads/Legacy/old.png", "Legacy artwork", "Legacy"),
+            )
+            conn.commit()
+            conn.close()
+
+            os.environ["DATABASE_PATH"] = str(db_file)
+            os.environ["UPLOAD_FOLDER"] = str(app_root / "data" / "uploads")
+            spec = importlib.util.spec_from_file_location(mod_name, app_root / "app.py")
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[mod_name] = mod
+            try:
+                with self.assertLogs(mod_name, level=logging.INFO) as log_cm:
+                    spec.loader.exec_module(mod)
+
+                mod.app.config.update(TESTING=True, SECRET_KEY="test-only-not-a-deployment-secret")
+                client = mod.app.test_client()
+
+                row = mod.db.execute("SELECT image_path FROM images")[0]
+                self.assertEqual(row["image_path"], "Legacy/old.png")
+
+                with client.get("/media/Legacy/old.png") as media_res:
+                    self.assertEqual(media_res.status_code, 200)
+                    self.assertEqual(media_res.data, legacy_png)
+
+                with client.get("/static/uploads/Legacy/old.png") as static_res:
+                    self.assertEqual(static_res.status_code, 404)
+
+                self.assertFalse(legacy_file.exists())
+                self.assertFalse(legacy_file.parent.exists())
+                self.assertFalse(empty_legacy_dir.exists())
+                self.assertEqual(existing_target.read_bytes(), b"new-version")
+
+                moved_logs = [m for m in log_cm.output if "Legacy/old.png" in m]
+                self.assertEqual(len(moved_logs), 1)
+            finally:
+                if mod is not None and hasattr(mod, "db"):
+                    mod.db._disconnect()
+                    mod.db._engine.dispose()
+                sys.modules.pop(mod_name, None)
+                if prev_db_env is None:
+                    os.environ.pop("DATABASE_PATH", None)
+                else:
+                    os.environ["DATABASE_PATH"] = prev_db_env
+                if prev_upload_env is None:
+                    os.environ.pop("UPLOAD_FOLDER", None)
+                else:
+                    os.environ["UPLOAD_FOLDER"] = prev_upload_env
 
     def test_script_name_prefix_add_and_delete(self):
         base_url = "http://localhost/pv"
