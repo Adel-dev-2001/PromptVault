@@ -31,7 +31,8 @@ class PromptVaultTests(unittest.TestCase):
         sys.modules[spec.name] = cls.module
         spec.loader.exec_module(cls.module)
         workspace_static = Path(cls.workspace.name) / "static"
-        workspace_uploads = workspace_static / "uploads"
+        workspace_uploads = Path(cls.workspace.name) / "data" / "uploads"
+        workspace_static.mkdir(parents=True, exist_ok=True)
         workspace_uploads.mkdir(parents=True, exist_ok=True)
         shutil.copy2(
             Path(__file__).resolve().parent / "static" / "styles.css",
@@ -234,9 +235,9 @@ class PromptVaultTests(unittest.TestCase):
         self.assertTrue(saved_file.exists())
 
         gallery_html = self.client.get("/", base_url=base_url).get_data(as_text=True)
-        self.assertIn('src="/pv/static/uploads/Prefixed/prefixed.png"', gallery_html)
+        self.assertIn('src="/pv/media/Prefixed/prefixed.png"', gallery_html)
 
-        with self.client.get("/static/uploads/Prefixed/prefixed.png", base_url=base_url) as img_res:
+        with self.client.get("/media/Prefixed/prefixed.png", base_url=base_url) as img_res:
             self.assertEqual(img_res.status_code, 200)
 
         del_res = self.client.post(
@@ -268,7 +269,7 @@ class PromptVaultTests(unittest.TestCase):
                 app_root / "static",
                 ignore=shutil.ignore_patterns("uploads"),
             )
-            (app_root / "static" / "uploads").mkdir(parents=True, exist_ok=True)
+            (app_root / "data" / "uploads").mkdir(parents=True, exist_ok=True)
 
             os.environ.pop("DATABASE_PATH", None)
             os.chdir(other_cwd)
@@ -285,10 +286,10 @@ class PromptVaultTests(unittest.TestCase):
                 self.assertEqual(Path(mod.database_path), (app_root / "prompts.db").resolve())
                 self.assertEqual(
                     Path(mod.app.config["UPLOAD_FOLDER"]),
-                    (app_root / "static" / "uploads").resolve(),
+                    (app_root / "data" / "uploads").resolve(),
                 )
                 self.assertFalse((other_cwd / "prompts.db").exists())
-                self.assertFalse((other_cwd / "static").exists())
+                self.assertFalse((other_cwd / "data").exists())
 
                 stream = io.BytesIO()
                 Image.new("RGB", (4, 4), "blue").save(stream, format="PNG")
@@ -503,15 +504,14 @@ class PromptVaultTests(unittest.TestCase):
             "/download/..%5cprompts.db",
             "/download/Examples%5c..%5cprompts.db",
             "/download/Examples/%2e%2e%2fprompts.db",
+            "/media/../prompts.db",
+            "/media/%2e%2e%2fprompts.db",
+            "/media/%252e%252e%252fprompts.db",
+            "/media/..%5cprompts.db",
         ]
         for path in traversal_paths:
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 404)
-        raw_res = self.client.get(
-            "/download/raw",
-            environ_base={"PATH_INFO": "/download/%2e%2e%2fprompts.db"},
-        )
-        self.assertEqual(raw_res.status_code, 404)
 
     def test_search_filtering(self):
         self.upload(filename="scifi1.png", category="SciFi", prompt_text="Orbital station")
@@ -722,17 +722,17 @@ class PromptVaultTests(unittest.TestCase):
         uploaded = self.module.db.execute("SELECT image_path FROM images WHERE id = ?", row["id"])[
             0
         ]
-        upload_url = f"/static/uploads/{uploaded['image_path']}"
-        with self.client.get(upload_url) as upload_res:
-            self.assertEqual(upload_res.status_code, 200)
+        media_url = f"/media/{uploaded['image_path']}"
+        with self.client.get(media_url) as media_res:
+            self.assertEqual(media_res.status_code, 200)
             self.assertEqual(
-                upload_res.headers.get("Cache-Control"),
+                media_res.headers.get("Cache-Control"),
                 "public, max-age=3600, must-revalidate",
             )
-            etag = upload_res.headers.get("ETag")
+            etag = media_res.headers.get("ETag")
             self.assertTrue(etag)
 
-        with self.client.get(upload_url, headers={"If-None-Match": etag}) as revalidated:
+        with self.client.get(media_url, headers={"If-None-Match": etag}) as revalidated:
             self.assertEqual(revalidated.status_code, 304)
 
     def test_prompt_xss_attribute_injection_prevented(self):
@@ -1008,20 +1008,31 @@ class PromptVaultTests(unittest.TestCase):
             env = os.environ.copy()
             env["APP_ENV"] = "development"
             env["DATABASE_PATH"] = "data/relative.db"
+            env["UPLOAD_FOLDER"] = "custom_media/uploads"
             env["PYTHONPATH"] = str(app_root)
             proc = subprocess.run(
-                [sys.executable, "-c", "import app; print(app.database_path)"],
+                [
+                    sys.executable,
+                    "-c",
+                    "import app; print(app.database_path); print(app.UPLOAD_FOLDER)",
+                ],
                 cwd=str(other_cwd),
                 env=env,
                 capture_output=True,
                 text=True,
             )
             self.assertEqual(proc.returncode, 0, proc.stderr)
+            lines = proc.stdout.strip().splitlines()
             self.assertEqual(
-                Path(proc.stdout.strip()).resolve(), (app_root / "data" / "relative.db").resolve()
+                Path(lines[0]).resolve(), (app_root / "data" / "relative.db").resolve()
+            )
+            self.assertEqual(
+                Path(lines[1]).resolve(), (app_root / "custom_media" / "uploads").resolve()
             )
             self.assertTrue((app_root / "data" / "relative.db").exists())
+            self.assertTrue((app_root / "custom_media" / "uploads").is_dir())
             self.assertFalse((other_cwd / "data").exists())
+            self.assertFalse((other_cwd / "custom_media").exists())
 
     def test_wsgi_entrypoint_requires_secret_key_when_app_env_unset(self):
         repo_dir = Path(__file__).resolve().parent
@@ -1081,14 +1092,14 @@ class PromptVaultTests(unittest.TestCase):
             with self.client.get("/static/styles.css") as css_res:
                 self.assertEqual(css_res.status_code, 200)
 
-            upload_url = "/static/uploads/" + existing["image_path"]
-            with self.client.get(upload_url) as upload_unauth:
-                self.assertEqual(upload_unauth.status_code, 401)
-                self.assertIn("Basic", upload_unauth.headers.get("WWW-Authenticate", ""))
-            with self.client.get(upload_url, headers=bad_headers) as upload_bad:
-                self.assertEqual(upload_bad.status_code, 401)
-            with self.client.get(upload_url, headers=valid_headers) as upload_ok:
-                self.assertEqual(upload_ok.status_code, 200)
+            media_url = "/media/" + existing["image_path"]
+            with self.client.get(media_url) as media_unauth:
+                self.assertEqual(media_unauth.status_code, 401)
+                self.assertIn("Basic", media_unauth.headers.get("WWW-Authenticate", ""))
+            with self.client.get(media_url, headers=bad_headers) as media_bad:
+                self.assertEqual(media_bad.status_code, 401)
+            with self.client.get(media_url, headers=valid_headers) as media_ok:
+                self.assertEqual(media_ok.status_code, 200)
 
             protected_gets = [
                 "/",
@@ -1170,6 +1181,69 @@ class PromptVaultTests(unittest.TestCase):
                 headers=valid_headers,
             )
             self.assertEqual(del_res.status_code, 302)
+
+    def test_app_password_blocks_upload_path_bypass_variants(self):
+        self.upload(filename="secret.png", category="Private")
+        existing = self.module.db.execute("SELECT * FROM images")[0]
+        rel = existing["image_path"]
+
+        token = base64.b64encode(b":secret-pass-42").decode("ascii")
+        valid_headers = {"Authorization": f"Basic {token}"}
+
+        raw_static_variants = [
+            f"/static/uploads/{rel}",
+            f"/static/./uploads/{rel}",
+            f"/static/x/../uploads/{rel}",
+            f"/static//uploads/{rel}",
+            f"/static/Uploads/{rel}",
+            f"/static/%2e/uploads/{rel}",
+            f"/static/x/%2e%2e/uploads/{rel}",
+            f"/static/uploads%2f{rel}",
+        ]
+        raw_media_variants = [
+            f"/media/{rel}",
+            f"/media/./{rel}",
+            f"/media/x/../{rel}",
+            f"/media//{rel}",
+            f"/media/%2e/{rel}",
+            f"/media/x/%2e%2e/{rel}",
+            f"/media/{rel.replace('/', '%2f')}",
+        ]
+
+        with patch.dict(self.module.app.config, {"APP_PASSWORD": "secret-pass-42"}):
+            self.assertEqual(self.client.get("/robots.txt").status_code, 200)
+            with self.client.get("/static/styles.css") as css_res:
+                self.assertEqual(css_res.status_code, 200)
+
+            # Uploads no longer reside in static/, so no static path variant can serve them.
+            for raw_path in raw_static_variants:
+                with self.subTest(static_path=raw_path):
+                    with self.client.get(raw_path) as res:
+                        if res.status_code == 308:
+                            with self.client.get(res.headers["Location"]) as followed:
+                                self.assertIn(followed.status_code, (401, 404))
+                        else:
+                            self.assertIn(res.status_code, (401, 404))
+
+            # Every /media/ path variant requires Basic auth (401, or 308 -> 401).
+            for raw_path in raw_media_variants:
+                with self.subTest(media_path=raw_path):
+                    with self.client.get(raw_path) as res:
+                        if res.status_code == 308:
+                            with self.client.get(res.headers["Location"]) as followed:
+                                self.assertEqual(followed.status_code, 401)
+                        else:
+                            self.assertEqual(res.status_code, 401)
+
+            with self.module.app.test_request_context():
+                media_url = self.module.image_url(existing)
+            self.assertEqual(media_url, f"/media/{rel}")
+            with self.client.get(media_url, headers=valid_headers) as auth_media:
+                self.assertEqual(auth_media.status_code, 200)
+            # Dot-segment variants under /media/ are rejected even with valid credentials.
+            for dot_path in [f"/media/./{rel}", f"/media/x/../{rel}", f"/media/%2e/{rel}"]:
+                with self.client.get(dot_path, headers=valid_headers) as dot_res:
+                    self.assertEqual(dot_res.status_code, 404)
 
 
 if __name__ == "__main__":

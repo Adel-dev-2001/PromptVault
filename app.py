@@ -56,8 +56,10 @@ KNOWN_PLACEHOLDER_SECRETS = {
     "changeme",
     "secret",
 }
-ABOUT_LASTMOD = "2026-11-23"
+# Update this date when templates/about.html changes.
+ABOUT_LASTMOD = "2026-11-24"
 FORM_ENDPOINTS = frozenset({"index", "add", "edit"})
+PUBLIC_ENDPOINTS = frozenset({"robots_txt", "static"})
 
 
 def resolve_secret_key(logger, is_production: bool) -> str:
@@ -76,14 +78,19 @@ def resolve_secret_key(logger, is_production: bool) -> str:
     return secrets.token_hex(32)
 
 
-def resolve_database_path(raw_path: str, app_root: str) -> str:
-    """Resolve DATABASE_PATH; relative values resolve from app_root rather than cwd."""
+def resolve_app_path(raw_path: str, default_rel: str, app_root: str) -> str:
+    """Resolve an env path; relative values resolve from app_root rather than cwd."""
     cleaned = (raw_path or "").strip()
     if not cleaned:
-        return os.path.join(app_root, "prompts.db")
+        return os.path.abspath(os.path.join(app_root, default_rel))
     if os.path.isabs(cleaned):
         return os.path.abspath(cleaned)
     return os.path.abspath(os.path.join(app_root, cleaned))
+
+
+def resolve_database_path(raw_path: str, app_root: str) -> str:
+    """Resolve DATABASE_PATH; relative values resolve from app_root rather than cwd."""
+    return resolve_app_path(raw_path, "prompts.db", app_root)
 
 
 def compute_static_version(static_root: str) -> str:
@@ -111,7 +118,9 @@ IS_PRODUCTION = os.environ.get("APP_ENV", "development").strip().lower() == "pro
 app.secret_key = resolve_secret_key(app.logger, IS_PRODUCTION)
 STATIC_VERSION = compute_static_version(os.path.join(app.root_path, "static"))
 
-UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
+UPLOAD_FOLDER = resolve_app_path(
+    os.environ.get("UPLOAD_FOLDER", ""), os.path.join("data", "uploads"), app.root_path
+)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -122,20 +131,12 @@ if os.environ.get("TRUST_PROXY") == "1":
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 
-def _is_upload_static_request() -> bool:
-    """Return True if the request targets /static/uploads/."""
-    if request.path == "/static/uploads" or request.path.startswith("/static/uploads/"):
-        return True
-    if request.endpoint == "static":
-        filename = (request.view_args or {}).get("filename", "").lstrip("/")
-        return filename == "uploads" or filename.startswith("uploads/")
-    return False
-
-
 @app.before_request
 def require_app_password():
-    """Require Basic auth on all routes except /robots.txt and non-upload /static/ assets.
+    """Require Basic auth on all non-public routes when APP_PASSWORD is set.
 
+    Only /robots.txt and /static/ assets are allow-listed; uploaded files live
+    outside static/ and are served via /media/, so they require authentication.
     Only the Basic auth password is verified; the username is ignored.
     """
     expected = app.config.get("APP_PASSWORD")
@@ -143,11 +144,7 @@ def require_app_password():
         expected = os.environ.get("APP_PASSWORD", "")
     if not expected:
         return None
-    if request.endpoint == "robots_txt" or request.path == "/robots.txt":
-        return None
-    if (
-        request.endpoint == "static" or request.path.startswith("/static/")
-    ) and not _is_upload_static_request():
+    if request.endpoint in PUBLIC_ENDPOINTS:
         return None
 
     auth = request.authorization
@@ -191,11 +188,12 @@ def normalize_legacy_image_path(raw_path: str) -> str:
     """Convert legacy full/prefixed upload URLs to relative 'Category/file.ext' paths."""
     if not isinstance(raw_path, str):
         return ""
-    marker = "/static/uploads/"
-    if marker in raw_path:
-        return unquote(raw_path.split(marker, 1)[1]).lstrip("/")
-    if raw_path.startswith("static/uploads/"):
-        return unquote(raw_path.removeprefix("static/uploads/")).lstrip("/")
+    for marker in ("/static/uploads/", "/media/"):
+        if marker in raw_path:
+            return unquote(raw_path.split(marker, 1)[1]).lstrip("/")
+    for prefix in ("static/uploads/", "media/"):
+        if raw_path.startswith(prefix):
+            return unquote(raw_path.removeprefix(prefix)).lstrip("/")
     return raw_path.lstrip("/")
 
 
@@ -265,9 +263,9 @@ def resolve_upload_path(relative_path: str):
 
 @app.template_global("image_url")
 def image_url(item) -> str:
-    """Build the public static URL for an entry's relative upload path."""
+    """Build the /media URL for an entry's relative upload path."""
     rel = item["image_path"] if isinstance(item, dict) else str(item)
-    return url_for("static", filename=f"uploads/{rel}")
+    return url_for("media_file", filename=rel)
 
 
 @app.template_global("asset_url")
@@ -350,10 +348,10 @@ def security_headers(response):
     ]
     response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
 
-    if request.endpoint == "static" and response.status_code == 200:
-        if _is_upload_static_request():
-            response.headers["Cache-Control"] = "public, max-age=3600, must-revalidate"
-        elif "v" in request.args:
+    if request.endpoint == "media_file" and response.status_code == 200:
+        response.headers["Cache-Control"] = "public, max-age=3600, must-revalidate"
+    elif request.endpoint == "static" and response.status_code == 200:
+        if "v" in request.args:
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         else:
             response.headers["Cache-Control"] = "public, max-age=86400"
@@ -702,23 +700,31 @@ def about():
     return render_template("about.html")
 
 
-@app.route("/download/<path:filename>")
-def download_file(filename: str):
+def _resolve_requested_upload(filename: str) -> str:
+    """Validate and resolve a requested upload path inside UPLOAD_FOLDER or abort(404)."""
     if "\\" in filename or "\x00" in filename or "%" in filename:
         abort(404)
-    if any(part == ".." for part in filename.split("/")):
+    if any(part in {"", ".", ".."} for part in filename.split("/")):
         abort(404)
 
-    upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
-    full_path = os.path.abspath(os.path.join(upload_root, filename))
-    try:
-        inside_uploads = os.path.commonpath([upload_root, full_path]) == upload_root
-    except ValueError:
-        inside_uploads = False
-
-    if not inside_uploads or not os.path.isfile(full_path):
+    full_path = resolve_upload_path(filename)
+    if not full_path or not os.path.isfile(full_path):
         abort(404)
+    return full_path
 
+
+@app.route("/media/<path:filename>")
+def media_file(filename: str):
+    full_path = _resolve_requested_upload(filename)
+    return send_from_directory(
+        os.path.dirname(full_path),
+        os.path.basename(full_path),
+    )
+
+
+@app.route("/download/<path:filename>")
+def download_file(filename: str):
+    full_path = _resolve_requested_upload(filename)
     return send_from_directory(
         os.path.dirname(full_path),
         os.path.basename(full_path),

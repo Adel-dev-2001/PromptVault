@@ -12,11 +12,12 @@ services:
       - SECRET_KEY=${SECRET_KEY:?set SECRET_KEY}
       - FLASK_DEBUG=0
       - DATABASE_PATH=/app/data/prompts.db
+      - UPLOAD_FOLDER=/app/data/uploads
       - TRUST_PROXY=${TRUST_PROXY:-0}
       - APP_PASSWORD=${APP_PASSWORD:-}
     volumes:
       - promptvault_data:/app/data
-      - promptvault_uploads:/app/static/uploads
+      - promptvault_uploads:/app/data/uploads
 
 volumes:
   promptvault_data:

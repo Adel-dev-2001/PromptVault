@@ -3,6 +3,7 @@ FROM python:3.13-slim
 
 ENV APP_ENV=production \
     DATABASE_PATH=/app/data/prompts.db \
+    UPLOAD_FOLDER=/app/data/uploads \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=5000
@@ -16,8 +17,8 @@ COPY . .
 
 RUN groupadd --system appuser \
     && useradd --system --gid appuser --home-dir /app --shell /usr/sbin/nologin appuser \
-    && mkdir -p /app/data /app/static/uploads \
-    && chown -R appuser:appuser /app/data /app/static/uploads
+    && mkdir -p /app/data/uploads \
+    && chown -R appuser:appuser /app/data
 
 USER appuser
 

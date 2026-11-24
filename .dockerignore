@@ -12,8 +12,9 @@ __pycache__
 *.py[cod]
 *.db
 *.db-*
+data/uploads/*
+!data/uploads/.gitkeep
 static/uploads/*
-!static/uploads/.gitkeep
 test_app.py
 pyproject.toml
 requirements-dev.txt

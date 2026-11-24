@@ -20,8 +20,9 @@ ENV/
 .env.local
 
 # Uploaded image artifacts (preserve folder structure via .gitkeep)
+data/uploads/*
+!data/uploads/.gitkeep
 static/uploads/*
-!static/uploads/.gitkeep
 
 # Operating system & editor metadata
 .DS_Store
