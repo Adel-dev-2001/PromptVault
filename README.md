@@ -38,7 +38,7 @@ Note on the hosted demo: GitHub Pages serves only the static version in [index.h
 - `test_app.py`: Automated `unittest` suite
 - `Dockerfile`, `docker-compose.yml`, `Procfile`: Container and deployment config
 - `requirements.txt`, `requirements-dev.txt`, `pyproject.toml`: Pinned dependencies and Ruff settings
-- `CHANGELOG.md`, `SECURITY.md`: Release log and security policy
+- `SECURITY.md`: Security policy and vulnerability reporting
 
 ## Quick start
 
