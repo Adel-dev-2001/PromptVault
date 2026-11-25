@@ -409,29 +409,86 @@ def security_headers(response):
     return response
 
 
+def _render_error(
+    code: int,
+    title: str,
+    message: str,
+    icon: str,
+    *,
+    description: str | None = None,
+    action_endpoint: str = "index",
+    action_icon: str = "fa-arrow-left",
+    action_label: str = "Return to Gallery",
+):
+    return (
+        render_template(
+            "error.html",
+            code=code,
+            title=title,
+            message=message,
+            icon=icon,
+            description=description,
+            action_endpoint=action_endpoint,
+            action_icon=action_icon,
+            action_label=action_label,
+        ),
+        code,
+    )
+
+
 @app.errorhandler(400)
 def bad_request_error(error):
-    return render_template("errors/400.html", error=error), 400
+    return _render_error(
+        400,
+        "Bad Request",
+        "The request could not be processed due to invalid input or a missing CSRF token.",
+        "fa-exclamation-triangle",
+    )
 
 
 @app.errorhandler(404)
 def not_found_error(error):
-    return render_template("errors/404.html", error=error), 404
+    return _render_error(
+        404,
+        "Page Not Found",
+        "The prompt, image, or page you requested does not exist or has been removed.",
+        "fa-ghost",
+    )
 
 
 @app.errorhandler(405)
 def method_not_allowed_error(error):
-    return render_template("errors/405.html", error=error), 405
+    return _render_error(
+        405,
+        "Method Not Allowed",
+        "The HTTP method used for this request is not allowed for this route.",
+        "fa-ban",
+    )
 
 
 @app.errorhandler(413)
 def upload_too_large(error):
-    return render_template("errors/413.html", error=error), 413
+    return _render_error(
+        413,
+        "Upload Too Large",
+        "The uploaded file exceeds the 10 MB request limit. Reduce the file size and try again.",
+        "fa-file-upload",
+        description="HTTP 413 payload too large error page in PromptVault.",
+        action_endpoint="add",
+        action_icon="fa-redo",
+        action_label="Try Another Upload",
+    )
 
 
 @app.errorhandler(500)
 def internal_error(error):
-    return render_template("errors/500.html", error=error), 500
+    return _render_error(
+        500,
+        "Internal Server Error",
+        "An unexpected error occurred while processing your request. Please try again later.",
+        "fa-server",
+        description="HTTP 500 internal server error page in PromptVault.",
+    )
 
 
 def _pagination_window(current: int, total: int) -> list[int | None]:

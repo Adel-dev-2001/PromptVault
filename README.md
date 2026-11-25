@@ -40,7 +40,7 @@ Captured with Playwright against a seeded local server:
 ## Project layout
 
 - `app.py`, `wsgi.py`: Flask application and WSGI entry point
-- `templates/`: Jinja2 views and HTTP error templates (`400`, `404`, `405`, `413`, `500`)
+- `templates/`: Jinja2 views and shared HTTP error template (`error.html` for 400, 404, 405, 413, 500)
 - `static/`: Stylesheet, deferred scripts (`js/main.js`, `js/gallery.js`, `js/form.js`, `js/demo.js`), manifest, and icons
 - `data/uploads/`: Default local directory for uploaded image files (ignored by Git)
 - `index.html`, `404.html`, `robots.txt`, `sitemap.xml`: Static GitHub Pages demo files

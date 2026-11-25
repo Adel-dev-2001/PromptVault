@@ -1068,10 +1068,68 @@ class PromptVaultTests(unittest.TestCase):
         self.assertIn('"@type": "WebApplication"', body)
         self.assertIn('"@type": "ImageGallery"', body)
 
-    def test_custom_404_template(self):
-        res = self.client.get("/nonexistent-page-path-404")
-        self.assertEqual(res.status_code, 404)
-        self.assertIn("Page Not Found", res.get_data(as_text=True))
+    def test_custom_error_pages(self):
+        repo_dir = Path(__file__).resolve().parent
+        self.assertTrue((repo_dir / "templates" / "error.html").is_file())
+        self.assertFalse((repo_dir / "templates" / "errors").exists())
+
+        res_400 = self.client.post("/add", data={"prompt_text": "no csrf", "category": "Examples"})
+        self.assertEqual(res_400.status_code, 400)
+        body_400 = res_400.get_data(as_text=True)
+        self.assertIn("<title>Bad Request (400) | PromptVault</title>", body_400)
+        self.assertIn("HTTP 400 bad request error page in PromptVault.", body_400)
+        self.assertIn("<h1>400 - Bad Request</h1>", body_400)
+        self.assertIn("fa-exclamation-triangle", body_400)
+        self.assertIn("Return to Gallery", body_400)
+
+        res_404 = self.client.get("/nonexistent-page-path-404")
+        self.assertEqual(res_404.status_code, 404)
+        body_404 = res_404.get_data(as_text=True)
+        self.assertIn("<title>Page Not Found (404) | PromptVault</title>", body_404)
+        self.assertIn("HTTP 404 page not found error page in PromptVault.", body_404)
+        self.assertIn("<h1>404 - Page Not Found</h1>", body_404)
+        self.assertIn("fa-ghost", body_404)
+        self.assertIn("Return to Gallery", body_404)
+
+        res_405 = self.client.get("/delete/1")
+        self.assertEqual(res_405.status_code, 405)
+        body_405 = res_405.get_data(as_text=True)
+        self.assertIn("<title>Method Not Allowed (405) | PromptVault</title>", body_405)
+        self.assertIn("HTTP 405 method not allowed error page in PromptVault.", body_405)
+        self.assertIn("<h1>405 - Method Not Allowed</h1>", body_405)
+        self.assertIn("fa-ban", body_405)
+        self.assertIn("Return to Gallery", body_405)
+
+        original_limit = self.module.app.config["MAX_CONTENT_LENGTH"]
+        token = self.csrf_token()
+        self.module.app.config["MAX_CONTENT_LENGTH"] = 512
+        try:
+            res_413 = self.client.post(
+                "/add", data={"csrf_token": token, "prompt_text": "x" * 2048}
+            )
+        finally:
+            self.module.app.config["MAX_CONTENT_LENGTH"] = original_limit
+        self.assertEqual(res_413.status_code, 413)
+        body_413 = res_413.get_data(as_text=True)
+        self.assertIn("<title>Upload Too Large (413) | PromptVault</title>", body_413)
+        self.assertIn("HTTP 413 payload too large error page in PromptVault.", body_413)
+        self.assertIn("<h1>413 - Upload Too Large</h1>", body_413)
+        self.assertIn("fa-file-upload", body_413)
+        self.assertIn("Try Another Upload", body_413)
+
+        self.module.app.config["PROPAGATE_EXCEPTIONS"] = False
+        try:
+            with patch.object(self.module.db, "execute", side_effect=RuntimeError("boom")):
+                res_500 = self.client.get("/")
+        finally:
+            self.module.app.config["PROPAGATE_EXCEPTIONS"] = None
+        self.assertEqual(res_500.status_code, 500)
+        body_500 = res_500.get_data(as_text=True)
+        self.assertIn("<title>Internal Server Error (500) | PromptVault</title>", body_500)
+        self.assertIn("HTTP 500 internal server error page in PromptVault.", body_500)
+        self.assertIn("<h1>500 - Internal Server Error</h1>", body_500)
+        self.assertIn("fa-server", body_500)
+        self.assertIn("Return to Gallery", body_500)
 
     def test_production_requires_non_placeholder_secret_key(self):
         repo_dir = Path(__file__).resolve().parent
