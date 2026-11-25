@@ -8,16 +8,6 @@ Links: [Static browser demo (GitHub Pages)](https://adel-dev-2001.github.io/Prom
 
 Note on the hosted demo: GitHub Pages serves only the static version in [index.html](index.html) and [static/js/demo.js](static/js/demo.js), which saves items in browser `localStorage` with no backend. Everything below describes the Flask server in [app.py](app.py).
 
-## Screenshots
-
-Captured with Playwright against a seeded local server:
-
-| Desktop gallery (1280x800) | Detail modal (1280x800) |
-| :---: | :---: |
-| ![Desktop gallery showing English, Arabic, Persian, and accented categories](docs/screenshots/gallery.png) | ![Prompt detail modal with full text, metadata, and download link](docs/screenshots/modal.png) |
-
-<img src="docs/screenshots/mobile.png" alt="Mobile view with expanded navigation menu and shortened search placeholder" width="320">
-
 ## Features
 
 - Browse saved artworks and prompts in a gallery paginated at 24 entries per page, with counts for total prompts, categories, and favorites.
@@ -48,7 +38,7 @@ Captured with Playwright against a seeded local server:
 - `test_app.py`: Automated `unittest` suite
 - `Dockerfile`, `docker-compose.yml`, `Procfile`: Container and deployment config
 - `requirements.txt`, `requirements-dev.txt`, `pyproject.toml`: Pinned dependencies and Ruff settings
-- `docs/screenshots/`, `CHANGELOG.md`, `SECURITY.md`: Screenshots, release log, and security policy
+- `CHANGELOG.md`, `SECURITY.md`: Release log and security policy
 
 ## Quick start
 
