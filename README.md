@@ -1,8 +1,10 @@
 # PromptVault
 
+[![CI](https://github.com/Adel-dev-2001/PromptVault/actions/workflows/ci.yml/badge.svg)](https://github.com/Adel-dev-2001/PromptVault/actions/workflows/ci.yml)
+
 PromptVault is a small Flask and SQLite web app for keeping generated images paired with the prompts, negative prompts, and settings used to produce them. Built by Adel Mohamed as a CS50x final project, it is meant as a single-user local tool and does not generate images, call external AI APIs, or manage multi-user accounts.
 
-Links: [Static browser demo (GitHub Pages)](https://adel-dev-2001.github.io/PromptVault/) | [Video walkthrough](https://youtu.be/-prDHVKBQtc) | [CI status](https://github.com/Adel-dev-2001/PromptVault/actions/workflows/ci.yml)
+Links: [Static browser demo (GitHub Pages)](https://adel-dev-2001.github.io/PromptVault/) | [Video walkthrough](https://youtu.be/-prDHVKBQtc)
 
 Note on the hosted demo: GitHub Pages serves only the static version in [index.html](index.html) and [static/js/demo.js](static/js/demo.js), which saves items in browser `localStorage` with no backend. Everything below describes the Flask server in [app.py](app.py).
 
@@ -27,14 +29,13 @@ Captured with Playwright against a seeded local server:
 
 ## Architecture
 
-- One Flask module ([app.py](app.py)) using `cs50.SQL` against a single SQLite table (`images`), Jinja2 templates in `templates/`, and custom error pages for 400, 404, 405, 413, and 500.
-- Uploaded images are stored outside `static/` under `data/uploads/<Category>/` (configurable via `UPLOAD_FOLDER`) and served by `/media/<path:filename>` and `/download/<path:filename>`.
-- SQLite stores relative `Category/file.ext` paths. On startup, any legacy `/static/uploads/` URL rows are rewritten, and pre-existing files under `static/uploads/` are moved into `UPLOAD_FOLDER` without overwriting (empty folders are removed, moved files are logged, and a warning is logged if a colliding file remains in `static/uploads/`). Links are built with `url_for`, so mounting under a `SCRIPT_NAME` prefix works without touching stored paths.
-- Relative `DATABASE_PATH` and `UPLOAD_FOLDER` values resolve from `app.root_path` rather than the working directory. If an `INSERT` fails after writing an image, the file is deleted; editing a category moves the file and removes empty old folders, or returns 400 if the file is missing on disk.
-- Gallery queries compute summary counts with `COUNT(*)` and `SUM`, paginate at 24 rows per page (`?page=N`), redirect out-of-range page numbers to the last page with HTTP 302, embed only the current page in `<script type="application/json">`, and emit `rel="prev"`, `rel="next"`, and canonical links.
-- Three deferred browser scripts under `static/js/` (`main.js`, `gallery.js`, `form.js`) handle the shared modal focus controller, mobile menu toggle, responsive search placeholder, clipboard copy, and upload previews with no build step.
-- Tracked static files carry a content-hashed `?v=` query parameter (`Cache-Control: public, max-age=31536000, immutable`), `/media/` responses send `Cache-Control: public, max-age=3600, must-revalidate` with Flask's `ETag`, and form pages (`/`, `/add`, `/edit/<id>`) send `Cache-Control: no-store`.
-- `/robots.txt` and `/sitemap.xml` are generated dynamically with `<lastmod>` (latest entry date for `/`, `ABOUT_LASTMOD` for `/about`). The root `index.html` and `static/js/demo.js` provide the separate GitHub Pages demo.
+- One Flask app ([app.py](app.py)) uses `cs50.SQL` with SQLite, Jinja2 templates, custom error pages, and dynamic robots and sitemap endpoints.
+- Uploaded images live outside static assets under `data/uploads/` and are served through explicit media and download routes.
+- SQLite stores relative paths so `url_for` links work under prefixes, and startup migrates legacy uploads without overwriting (warning on collisions).
+- Relative configured paths resolve from `app.root_path`, failed inserts delete saved files, and category edits move files and prune empty folders.
+- Gallery queries count totals in SQL, paginate 24 items per page (`?page=N`), redirect overflow pages, and emit prev, next, and canonical links.
+- Deferred browser scripts in `static/js/` handle the focus-trapping modal, mobile menu, clipboard copy, and upload previews with no build step.
+- Static assets use versioned long-term caching, uploaded media revalidates with `ETag`, and form pages send no-store cache headers.
 
 ## Project layout
 
@@ -93,7 +94,7 @@ See [.env.example](.env.example) for a starting template.
 | `SECRET_KEY` | Temporary random key in local dev | Signs Flask sessions and CSRF tokens. Must be at least 32 characters and non-placeholder in production. |
 | `DATABASE_PATH` | `<app_root>/prompts.db` (`/app/data/prompts.db` in Docker) | SQLite database path; relative values resolve from `app.root_path`. Commented out in `.env.example`. |
 | `UPLOAD_FOLDER` | `<app_root>/data/uploads` (`/app/data/uploads` in Docker) | Upload directory; relative values resolve from `app.root_path`. Commented out in `.env.example`. |
-| `APP_PASSWORD` | Empty (disabled) | When set, requires HTTP Basic auth (`hmac.compare_digest`, username ignored) on all routes including `/media/` and `/download/`; only `/robots.txt` and `/static/` stay public. |
+| `APP_PASSWORD` | Empty (disabled) | Enables HTTP Basic auth on all routes except `/robots.txt` and `/static/`. See [Security](#security). |
 | `HOST` | `127.0.0.1` | Bind address for `python app.py`. |
 | `PORT` | `5000` | Listen port for `python app.py`. |
 | `FLASK_DEBUG` | `0` | Enables Flask debug mode when set to `1`. |

@@ -12,12 +12,10 @@ Include the steps to reproduce, the affected route or file, and the Python/Flask
 
 ## Scope and threat model
 
-PromptVault is designed as a single-user local tool. Setting `APP_PASSWORD` adds HTTP Basic authentication (single shared password, username ignored) across all routes including `/media/` and `/download/`, leaving only `/robots.txt` and `/static/` assets public.
+PromptVault is designed as a single-user local tool. For optional authentication (`APP_PASSWORD`) and what is protected, see the [Security section of README.md](README.md#security).
 
 The following are out of scope by design:
 
 - Multi-user accounts, session isolation, or per-user permissions.
 - Built-in rate limiting or brute-force throttling (handle this at a reverse proxy if exposed outside localhost).
 - Malware scanning of uploaded image files beyond Pillow decoding and format/frame validation.
-
-See the Security section in [README.md](README.md) for full details.
