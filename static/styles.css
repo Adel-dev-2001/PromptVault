@@ -1,9 +1,3 @@
-/* =========================================
-   PromptVault - Main Stylesheet
-   Dark Glassmorphism | Space Mono + DM Sans
-   ========================================= */
-
-/* ---------- CSS Custom Properties ---------- */
 :root {
     --bg:           #080e1a;
     --bg-2:         #0f172a;
@@ -32,7 +26,7 @@
     --transition:   all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ---------- Reset & Accessibility ---------- */
+/* Base reset and focus styles */
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -86,7 +80,7 @@ textarea:focus-visible {
     top: 1rem;
 }
 
-/* ---------- Header & Navigation ---------- */
+/* Header and navigation */
 header {
     background: var(--glass);
     backdrop-filter: blur(16px);
@@ -174,7 +168,7 @@ nav {
     background: rgba(255, 255, 255, 0.05);
 }
 
-/* ---------- Flash Notification Messages ---------- */
+/* Flash messages */
 .flash-container {
     padding: 1.25rem 5% 0;
     display: flex;
@@ -210,7 +204,7 @@ nav {
     color: #f87171;
 }
 
-/* ---------- Metrics Banner ---------- */
+/* Metrics banner */
 .metrics-banner {
     display: flex;
     justify-content: center;
@@ -248,7 +242,7 @@ nav {
     color: var(--fav);
 }
 
-/* ---------- Toolbar (Search + Filters + Sort) ---------- */
+/* Toolbar */
 .toolbar {
     padding: 1.25rem 5% 1.75rem;
     display: flex;
@@ -409,7 +403,7 @@ nav {
     background: rgba(59, 130, 246, 0.12);
 }
 
-/* ---------- Gallery Grid ---------- */
+/* Gallery grid */
 .gallery {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -417,7 +411,7 @@ nav {
     padding: 0 5% 3.5rem;
 }
 
-/* ---------- Pagination ---------- */
+/* Pagination */
 .pagination {
     display: flex;
     justify-content: center;
@@ -482,7 +476,7 @@ a.page-num:hover {
     padding: 0 0.25rem;
 }
 
-/* ---------- Card ---------- */
+/* Cards */
 .card {
     background: var(--glass-card);
     border: 1px solid var(--glass-border);
@@ -710,7 +704,7 @@ a.page-num:hover {
     transform: translateX(2px);
 }
 
-/* ---------- Details Modal ---------- */
+/* Detail modal */
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -841,7 +835,7 @@ a.page-num:hover {
     padding-top: 1rem;
 }
 
-/* ---------- Toast Notification ---------- */
+/* Toast notification */
 .toast-notification {
     position: fixed;
     bottom: 2rem;
@@ -865,7 +859,7 @@ a.page-num:hover {
     opacity: 1;
 }
 
-/* ---------- Empty State ---------- */
+/* Empty state */
 .empty-state {
     display: flex;
     flex-direction: column;
@@ -902,7 +896,7 @@ a.page-num:hover {
     margin-top: 0.5rem;
 }
 
-/* ---------- Buttons ---------- */
+/* Buttons */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -952,7 +946,7 @@ a.page-num:hover {
     box-shadow: 0 0 20px var(--danger-glow);
 }
 
-/* ---------- Form Pages ---------- */
+/* Form pages */
 .form-page {
     display: flex;
     justify-content: center;
@@ -1169,7 +1163,7 @@ input::placeholder, textarea::placeholder {
     display: block;
 }
 
-/* ---------- About Page & Specifications ---------- */
+/* About page */
 .about-card {
     max-width: 760px;
 }
@@ -1285,7 +1279,7 @@ input::placeholder, textarea::placeholder {
     margin-top: 0.5rem;
 }
 
-/* ---------- Error Pages ---------- */
+/* Error pages */
 .error-card {
     text-align: center;
     max-width: 520px;
@@ -1303,7 +1297,7 @@ input::placeholder, textarea::placeholder {
     margin-top: 1.5rem;
 }
 
-/* ---------- Footer ---------- */
+/* Footer */
 footer {
     text-align: center;
     padding: 2.5rem 5%;
@@ -1320,7 +1314,7 @@ footer {
     color: var(--text-muted);
 }
 
-/* ---------- Accessibility Helpers ---------- */
+/* Utility classes */
 .sr-only {
     position: absolute;
     width: 1px;
@@ -1345,7 +1339,6 @@ body.modal-open {
     display: none;
 }
 
-/* ---------- Card Animation Stagger ---------- */
 .gallery .card:nth-child(1) { animation-delay: 0s; }
 .gallery .card:nth-child(2) { animation-delay: 0.05s; }
 .gallery .card:nth-child(3) { animation-delay: 0.1s; }
@@ -1359,12 +1352,11 @@ body.modal-open {
 .gallery .card:nth-child(11) { animation-delay: 0.5s; }
 .gallery .card:nth-child(12) { animation-delay: 0.55s; }
 
-/* ---------- About Actions ---------- */
 .about-actions {
     margin-top: 2rem;
 }
 
-/* ---------- Responsive Layout ---------- */
+/* Responsive layout */
 @media (max-width: 768px) {
     header {
         padding: 0.85rem 4%;

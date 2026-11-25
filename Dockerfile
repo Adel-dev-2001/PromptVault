@@ -1,4 +1,3 @@
-# PromptVault Single-Stage Dockerfile
 FROM python:3.13-slim
 
 ENV APP_ENV=production \
