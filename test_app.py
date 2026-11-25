@@ -427,9 +427,11 @@ class PromptVaultTests(unittest.TestCase):
                 mod.app.config.update(TESTING=True, SECRET_KEY="test-only-not-a-deployment-secret")
                 client = mod.app.test_client()
 
-                self.assertEqual(Path(mod.database_path), (app_root / "prompts.db").resolve())
                 self.assertEqual(
-                    Path(mod.app.config["UPLOAD_FOLDER"]),
+                    Path(mod.database_path).resolve(), (app_root / "prompts.db").resolve()
+                )
+                self.assertEqual(
+                    Path(mod.app.config["UPLOAD_FOLDER"]).resolve(),
                     (app_root / "data" / "uploads").resolve(),
                 )
                 self.assertFalse((other_cwd / "prompts.db").exists())
@@ -1143,11 +1145,11 @@ class PromptVaultTests(unittest.TestCase):
             other_cwd.mkdir()
 
             resolved_rel = Path(self.module.resolve_database_path("data/custom.db", str(app_root)))
-            self.assertEqual(resolved_rel, (app_root / "data" / "custom.db").resolve())
+            self.assertEqual(resolved_rel.resolve(), (app_root / "data" / "custom.db").resolve())
 
             abs_target = (other_cwd / "abs.db").resolve()
             resolved_abs = Path(self.module.resolve_database_path(str(abs_target), str(app_root)))
-            self.assertEqual(resolved_abs, abs_target)
+            self.assertEqual(resolved_abs.resolve(), abs_target)
 
             shutil.copy2(repo_dir / "app.py", app_root / "app.py")
             shutil.copytree(repo_dir / "templates", app_root / "templates")
