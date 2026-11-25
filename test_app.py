@@ -290,6 +290,8 @@ class PromptVaultTests(unittest.TestCase):
                 self.assertFalse(legacy_file.parent.exists())
                 self.assertFalse(empty_legacy_dir.exists())
                 self.assertEqual(existing_target.read_bytes(), b"new-version")
+                self.assertTrue(legacy_dup.exists())
+                self.assertEqual(legacy_dup.read_bytes(), b"old-version")
 
                 moved_logs = [m for m in log_cm.output if "Legacy/old.png" in m]
                 self.assertEqual(len(moved_logs), 1)
@@ -300,6 +302,21 @@ class PromptVaultTests(unittest.TestCase):
                     if m.startswith("WARNING:") and "Keep/same.png" in m and "static/uploads/" in m
                 ]
                 self.assertEqual(len(collision_warnings), 1)
+
+                # Simulate another worker having already moved src -> dst after os.walk listed src.
+                concurrent_dst = app_root / "data" / "uploads" / "Concurrent" / "moved.png"
+                concurrent_dst.parent.mkdir(parents=True, exist_ok=True)
+                concurrent_dst.write_bytes(b"already-moved")
+                concurrent_dir = str(app_root / "static" / "uploads" / "Concurrent")
+                with (
+                    patch.object(
+                        mod.os,
+                        "walk",
+                        return_value=[(concurrent_dir, [], ["moved.png"])],
+                    ),
+                    self.assertNoLogs(mod_name, level=logging.WARNING),
+                ):
+                    mod.migrate_legacy_upload_files()
 
                 # Simulate another worker moving a file mid-migration (FileNotFoundError -> silent).
                 raced_file = app_root / "static" / "uploads" / "Race" / "vanished.png"

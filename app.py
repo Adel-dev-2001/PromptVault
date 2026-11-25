@@ -228,10 +228,11 @@ def migrate_legacy_upload_files() -> None:
             except ValueError:
                 continue
             if os.path.exists(dst):
-                app.logger.warning(
-                    "Skipped legacy upload %s; target exists, file left in static/uploads/",
-                    rel_posix,
-                )
+                if os.path.exists(src):
+                    app.logger.warning(
+                        "Skipped legacy upload %s; target exists, file left in static/uploads/",
+                        rel_posix,
+                    )
                 continue
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             try:
