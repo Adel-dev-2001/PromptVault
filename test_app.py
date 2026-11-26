@@ -1037,6 +1037,9 @@ class PromptVaultTests(unittest.TestCase):
         self.assertEqual(err_html.count("styles.css"), 1)
         self.assertIn("<title>Page Not Found (404) | PromptVault</title>", err_html)
 
+        css_text = (repo_dir / "static" / "styles.css").read_text(encoding="utf-8")
+        self.assertRegex(css_text, r"\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}")
+
         dev_reqs = (repo_dir / "requirements-dev.txt").read_text(encoding="utf-8")
         self.assertRegex(dev_reqs, r"(?m)^ruff==\d+\.\d+\.\d+$")
         self.assertRegex(dev_reqs, r"(?m)^pip-audit==\d+\.\d+\.\d+$")

@@ -1335,8 +1335,8 @@ body.modal-open {
     overflow: hidden;
 }
 
-#preview[hidden] {
-    display: none;
+[hidden] {
+    display: none !important;
 }
 
 .gallery .card:nth-child(1) { animation-delay: 0s; }
